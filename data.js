@@ -1,10 +1,10 @@
 const DataStore = {
   KEYS: {
-    SETTINGS: 'invoiceforge_settings',
-    CLIENTS: 'invoiceforge_clients',
-    INVOICES: 'invoiceforge_invoices',
-    TEMPLATES: 'invoiceforge_templates',
-    COUNTER: 'invoiceforge_counter',
+    SETTINGS: 'invoicegen_settings',
+    CLIENTS: 'invoicegen_clients',
+    INVOICES: 'invoicegen_invoices',
+    TEMPLATES: 'invoicegen_templates',
+    COUNTER: 'invoicegen_counter',
   },
 
   defaults: {

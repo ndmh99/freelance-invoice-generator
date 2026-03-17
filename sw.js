@@ -1,4 +1,4 @@
-const CACHE_NAME = 'invoiceforge-v1';
+const CACHE_NAME = 'invoice-generator-v1';
 const ASSETS = [
   './',
   './index.html',

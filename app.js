@@ -4,7 +4,12 @@ const App = {
     editingInvoiceId: null,
     editingClientId: null,
     editingTemplateId: null,
+    invoiceSearch: '',
+    clientSearch: '',
+    selectedInvoices: new Set(),
+    selectedClients: new Set(),
   },
+  pendingInvoiceExport: null,
 
   init() {
     this.initTheme();
@@ -17,6 +22,9 @@ const App = {
     this.bindTemplate();
     this.bindImport();
     this.bindConfirm();
+    this.bindTemplateSelect();
+    this.bindSearch();
+    this.bindBulkActions();
     this.render();
     this.updateOnlineStatus();
     window.addEventListener('online', () => this.updateOnlineStatus());
@@ -62,26 +70,26 @@ const App = {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    
+
     const icons = {
       success: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
       error: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
       warning: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
       info: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
     };
-    
+
     toast.innerHTML = `
       ${icons[type] || icons.info}
       <span class="toast-message">${this.escapeHtml(message)}</span>
     `;
-    
+
     container.appendChild(toast);
-    
+
     const dismiss = () => {
       toast.classList.add('removing');
       toast.addEventListener('transitionend', () => toast.remove(), { once: true });
     };
-    
+
     toast.addEventListener('click', dismiss);
     setTimeout(dismiss, 3000);
   },
@@ -122,6 +130,67 @@ const App = {
   },
 
   // Settings
+  getMockPreviewData() {
+    const mockInvoice = {
+      number: 'INV-0001',
+      issueDate: '2026-01-15',
+      dueDate: '2026-02-15',
+      status: 'sent',
+      taxRate: 5,
+      taxLabel: 'GST',
+      notes: 'Payment due within 30 days. Thank you for your business!',
+      items: [
+        { description: 'Website Design', qty: 1, rate: 2500 },
+        { description: 'Development Hours', qty: 40, rate: 150 },
+        { description: 'Hosting Setup', qty: 1, rate: 200 },
+      ]
+    };
+    const mockClient = {
+      name: 'Acme Corporation',
+      email: 'billing@acme.com',
+      address: '123 Business Ave, Suite 400\nSan Francisco, CA 94102',
+      taxId: 'US-12-3456789'
+    };
+    return { mockInvoice, mockClient };
+  },
+
+  renderSettingsTemplateCards(s) {
+    const templates = PDFHandler.getTemplateList();
+    const grid = document.getElementById('settings-template-grid');
+    const savedTemplate = s.pdfTemplate || '';
+
+    grid.innerHTML = templates.map(t => `
+      <div class="template-card${t.id === savedTemplate ? ' active-default' : ''}" data-template="${t.id}">
+        <div class="template-card-name">${t.name}</div>
+        <div class="template-card-desc">${t.description}</div>
+      </div>
+    `).join('');
+
+    grid.querySelectorAll('.template-card').forEach(card => {
+      card.addEventListener('click', async () => {
+        const templateId = card.dataset.template;
+
+        grid.querySelectorAll('.template-card').forEach(c => c.classList.remove('active-default'));
+        card.classList.add('active-default');
+        document.getElementById('setting-pdf-template').value = templateId;
+
+        const previewArea = document.getElementById('settings-template-preview');
+        const template = templates.find(t => t.id === templateId);
+        document.getElementById('settings-preview-template-name').textContent = template.name;
+        previewArea.classList.remove('hidden');
+
+        try {
+          const settings = DataStore.getSettings();
+          const { mockInvoice, mockClient } = this.getMockPreviewData();
+          const previewDataUrl = await PDFHandler.generatePreview(mockInvoice, mockClient, settings, templateId);
+          document.getElementById('settings-preview-iframe').src = previewDataUrl;
+        } catch (err) {
+          console.error('Settings preview failed:', err);
+        }
+      });
+    });
+  },
+
   bindSettings() {
     document.getElementById('settings-btn').addEventListener('click', () => {
       const s = DataStore.getSettings();
@@ -131,7 +200,17 @@ const App = {
       document.getElementById('setting-currency').value = s.currency;
       document.getElementById('setting-prefix').value = s.prefix;
       document.getElementById('setting-counter').value = s.counter;
+      document.getElementById('setting-pdf-template').value = s.pdfTemplate || '';
+      document.getElementById('setting-tax-rate').value = s.taxRate || 0;
+      document.getElementById('setting-tax-label').value = s.taxLabel || 'Tax';
+      document.getElementById('settings-template-preview').classList.add('hidden');
+      this.renderSettingsTemplateCards(s);
       this.openModal('settings-modal');
+    });
+
+    document.getElementById('settings-preview-close').addEventListener('click', () => {
+      document.getElementById('settings-template-preview').classList.add('hidden');
+      document.getElementById('settings-preview-iframe').src = '';
     });
 
     document.getElementById('save-settings-btn').addEventListener('click', () => {
@@ -142,6 +221,9 @@ const App = {
         currency: document.getElementById('setting-currency').value.trim() || '$',
         prefix: document.getElementById('setting-prefix').value.trim() || 'INV-',
         counter: parseInt(document.getElementById('setting-counter').value) || 1,
+        pdfTemplate: document.getElementById('setting-pdf-template').value,
+        taxRate: parseFloat(document.getElementById('setting-tax-rate').value) || 0,
+        taxLabel: document.getElementById('setting-tax-label').value.trim() || 'Tax',
       };
       DataStore.saveSettings(settings);
       this.closeModal('settings-modal');
@@ -198,13 +280,18 @@ const App = {
       : '<div class="empty">No invoices yet</div>';
   },
 
-  renderInvoiceItem(inv) {
+  renderInvoiceItem(inv, selectable = false) {
     const client = DataStore.getClient(inv.clientId);
     const total = DataStore.calcInvoiceTotal(inv);
     const settings = DataStore.getSettings();
     const statusLabel = inv.status.charAt(0).toUpperCase() + inv.status.slice(1);
+    const isSelected = this.state.selectedInvoices.has(inv.id);
+    const checkbox = selectable
+      ? `<label class="list-item-checkbox"><input type="checkbox" data-select-invoice="${inv.id}" ${isSelected ? 'checked' : ''}></label>`
+      : '';
     return `
-      <div class="list-item" data-id="${inv.id}">
+      <div class="list-item${isSelected ? ' selected' : ''}" data-id="${inv.id}">
+        ${checkbox}
         <div class="list-item-main">
           <div class="list-item-title">
             ${inv.number}
@@ -241,6 +328,9 @@ const App = {
       due.setDate(due.getDate() + 30);
       document.getElementById('invoice-due').value = due.toISOString().split('T')[0];
       document.getElementById('invoice-notes').value = '';
+      const s = DataStore.getSettings();
+      document.getElementById('invoice-tax-rate').value = s.taxRate || 0;
+      document.getElementById('invoice-tax-label').value = s.taxLabel || 'Tax';
       this.populateClientSelect('invoice-client');
       this.populateTemplateSelect('invoice-template');
       document.getElementById('line-items').innerHTML = '';
@@ -254,6 +344,10 @@ const App = {
 
     document.getElementById('add-line-item-btn').addEventListener('click', () => {
       this.addLineItem('line-items');
+    });
+
+    document.getElementById('invoice-tax-rate').addEventListener('input', () => {
+      this.updateInvoiceTotal();
     });
 
     document.getElementById('invoice-template').addEventListener('change', (e) => {
@@ -284,6 +378,8 @@ const App = {
         issueDate: document.getElementById('invoice-issue-date').value,
         dueDate: document.getElementById('invoice-due').value,
         notes: document.getElementById('invoice-notes').value.trim(),
+        taxRate: parseFloat(document.getElementById('invoice-tax-rate').value) || 0,
+        taxLabel: document.getElementById('invoice-tax-label').value.trim() || 'Tax',
         items,
       };
 
@@ -324,13 +420,23 @@ const App = {
         issueDate: document.getElementById('invoice-issue-date').value,
         dueDate: document.getElementById('invoice-due').value,
         notes: document.getElementById('invoice-notes').value.trim(),
+        taxRate: parseFloat(document.getElementById('invoice-tax-rate').value) || 0,
+        taxLabel: document.getElementById('invoice-tax-label').value.trim() || 'Tax',
         items,
       };
       const clientId = document.getElementById('invoice-client').value;
       const client = clientId ? DataStore.getClient(clientId) : null;
       const settings = DataStore.getSettings();
-      PDFHandler.exportInvoice(invoice, client, settings);
-      this.toast('PDF exported', 'success');
+
+      this.pendingInvoiceExport = { invoice, client, settings };
+
+      const defaultTemplate = settings.pdfTemplate || null;
+      if (defaultTemplate) {
+        PDFHandler.exportInvoice(invoice, client, settings, defaultTemplate);
+        this.toast('PDF exported', 'success');
+      } else {
+        this.showTemplateSelectModal(invoice, client, settings);
+      }
     });
 
     document.getElementById('invoice-filter').addEventListener('change', () => {
@@ -370,18 +476,33 @@ const App = {
     });
 
     document.getElementById('all-invoices').addEventListener('click', (e) => {
+      const checkbox = e.target.closest('[data-select-invoice]');
+      if (checkbox) {
+        e.stopPropagation();
+        const id = checkbox.dataset.selectInvoice;
+        if (checkbox.checked) {
+          this.state.selectedInvoices.add(id);
+        } else {
+          this.state.selectedInvoices.delete(id);
+        }
+        checkbox.closest('.list-item').classList.toggle('selected', checkbox.checked);
+        this.updateBulkActionsUI('invoice');
+        this.updateSelectAllState('invoice');
+        return;
+      }
       const deleteBtn = e.target.closest('.btn-delete-invoice');
       if (deleteBtn) {
         e.stopPropagation();
         this.showConfirm('Delete', 'Remove this invoice?', () => {
           DataStore.deleteInvoice(deleteBtn.dataset.id);
+          this.state.selectedInvoices.delete(deleteBtn.dataset.id);
           this.render();
           this.toast('Deleted', 'success');
         });
         return;
       }
       const item = e.target.closest('.list-item');
-      if (item) this.editInvoice(item.dataset.id);
+      if (item && !e.target.closest('.list-item-checkbox')) this.editInvoice(item.dataset.id);
     });
 
     document.getElementById('recent-invoices').addEventListener('click', (e) => {
@@ -411,6 +532,8 @@ const App = {
     document.getElementById('invoice-issue-date').value = inv.issueDate || '';
     document.getElementById('invoice-due').value = inv.dueDate || '';
     document.getElementById('invoice-notes').value = inv.notes || '';
+    document.getElementById('invoice-tax-rate').value = inv.taxRate || 0;
+    document.getElementById('invoice-tax-label').value = inv.taxLabel || DataStore.getSettings().taxLabel || 'Tax';
     this.populateClientSelect('invoice-client');
     document.getElementById('invoice-client').value = inv.clientId || '';
     this.populateTemplateSelect('invoice-template');
@@ -423,6 +546,7 @@ const App = {
 
   renderInvoices() {
     const filter = document.getElementById('invoice-filter').value;
+    const search = this.state.invoiceSearch.toLowerCase().trim();
     let invoices = DataStore.getInvoices().sort((a, b) =>
       new Date(b.createdAt) - new Date(a.createdAt)
     );
@@ -436,10 +560,22 @@ const App = {
         invoices = invoices.filter(i => i.status === filter);
       }
     }
+    if (search) {
+      invoices = invoices.filter(inv => {
+        const client = DataStore.getClient(inv.clientId);
+        const clientName = client ? client.name.toLowerCase() : '';
+        const number = (inv.number || '').toLowerCase();
+        const status = (inv.status || '').toLowerCase();
+        const notes = (inv.notes || '').toLowerCase();
+        return number.includes(search) || clientName.includes(search) || status.includes(search) || notes.includes(search);
+      });
+    }
     const container = document.getElementById('all-invoices');
     container.innerHTML = invoices.length
-      ? invoices.map(inv => this.renderInvoiceItem(inv)).join('')
+      ? invoices.map(inv => this.renderInvoiceItem(inv, true)).join('')
       : '<div class="empty">No invoices</div>';
+    this.updateBulkActionsUI('invoice');
+    this.updateSelectAllState('invoice');
   },
 
   addLineItem(containerId, data = null) {
@@ -488,9 +624,17 @@ const App = {
 
   updateInvoiceTotal() {
     const items = this.getLineItems('line-items');
-    const total = items.reduce((s, i) => s + i.qty * i.rate, 0);
+    const subtotal = items.reduce((s, i) => s + i.qty * i.rate, 0);
+    const taxRate = parseFloat(document.getElementById('invoice-tax-rate').value) || 0;
+    const taxAmount = subtotal * taxRate / 100;
+    const total = subtotal + taxAmount;
     const settings = DataStore.getSettings();
-    document.getElementById('invoice-total').textContent = DataStore.formatCurrency(total, settings);
+    const totalEl = document.getElementById('invoice-total');
+    if (taxRate > 0) {
+      totalEl.innerHTML = `<span class="subtotal-line">${DataStore.formatCurrency(subtotal, settings)} subtotal</span> <span class="tax-line">+ ${DataStore.formatCurrency(taxAmount, settings)} tax</span> <span class="total-line">${DataStore.formatCurrency(total, settings)}</span>`;
+    } else {
+      totalEl.textContent = DataStore.formatCurrency(total, settings);
+    }
   },
 
   populateClientSelect(selectId) {
@@ -581,6 +725,20 @@ const App = {
     });
 
     document.getElementById('client-list').addEventListener('click', (e) => {
+      const checkbox = e.target.closest('[data-select-client]');
+      if (checkbox) {
+        e.stopPropagation();
+        const id = checkbox.dataset.selectClient;
+        if (checkbox.checked) {
+          this.state.selectedClients.add(id);
+        } else {
+          this.state.selectedClients.delete(id);
+        }
+        checkbox.closest('.card').classList.toggle('selected', checkbox.checked);
+        this.updateBulkActionsUI('client');
+        this.updateSelectAllState('client');
+        return;
+      }
       const deleteBtn = e.target.closest('.btn-delete-client');
       if (deleteBtn) {
         e.stopPropagation();
@@ -592,13 +750,14 @@ const App = {
           : `Delete "${client.name}"?`;
         this.showConfirm('Delete Client', message, () => {
           DataStore.deleteClient(id);
+          this.state.selectedClients.delete(id);
           this.render();
           this.toast('Client deleted', 'success');
         });
         return;
       }
       const card = e.target.closest('.card');
-      if (card) this.editClient(card.dataset.id);
+      if (card && !e.target.closest('.card-checkbox')) this.editClient(card.dataset.id);
     });
   },
 
@@ -619,11 +778,23 @@ const App = {
   },
 
   renderClients() {
-    const clients = DataStore.getClients().sort((a, b) => a.name.localeCompare(b.name));
+    const search = this.state.clientSearch.toLowerCase().trim();
+    let clients = DataStore.getClients().sort((a, b) => a.name.localeCompare(b.name));
+    if (search) {
+      clients = clients.filter(c => {
+        const name = (c.name || '').toLowerCase();
+        const email = (c.email || '').toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        const address = (c.address || '').toLowerCase();
+        return name.includes(search) || email.includes(search) || phone.includes(search) || address.includes(search);
+      });
+    }
     const invoices = DataStore.getInvoices();
     const container = document.getElementById('client-list');
     if (clients.length === 0) {
       container.innerHTML = '<div class="empty">No clients</div>';
+      this.updateBulkActionsUI('client');
+      this.updateSelectAllState('client');
       return;
     }
     container.innerHTML = clients.map(c => {
@@ -632,8 +803,10 @@ const App = {
       const totalBilled = invoices.filter(i => i.clientId === c.id)
         .reduce((sum, i) => sum + DataStore.calcInvoiceTotal(i), 0);
       const settings = DataStore.getSettings();
+      const isSelected = this.state.selectedClients.has(c.id);
       return `
-        <div class="card" data-id="${c.id}">
+        <div class="card${isSelected ? ' selected' : ''}" data-id="${c.id}">
+          <label class="card-checkbox"><input type="checkbox" data-select-client="${c.id}" ${isSelected ? 'checked' : ''}></label>
           <button class="card-delete btn-delete-client" data-id="${c.id}" title="Delete client">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
@@ -659,6 +832,8 @@ const App = {
         </div>
       `;
     }).join('');
+    this.updateBulkActionsUI('client');
+    this.updateSelectAllState('client');
   },
 
   // Templates
@@ -1027,6 +1202,180 @@ const App = {
       if (this.confirmCallback) this.confirmCallback();
     };
     okBtn.addEventListener('click', handler);
+  },
+
+  bindSearch() {
+    let invoiceTimer, clientTimer;
+    document.getElementById('invoice-search').addEventListener('input', (e) => {
+      clearTimeout(invoiceTimer);
+      invoiceTimer = setTimeout(() => {
+        this.state.invoiceSearch = e.target.value;
+        this.renderInvoices();
+      }, 200);
+    });
+    document.getElementById('client-search').addEventListener('input', (e) => {
+      clearTimeout(clientTimer);
+      clientTimer = setTimeout(() => {
+        this.state.clientSearch = e.target.value;
+        this.renderClients();
+      }, 200);
+    });
+  },
+
+  bindBulkActions() {
+    document.getElementById('invoice-select-all').addEventListener('change', (e) => {
+      const visibleIds = Array.from(document.querySelectorAll('#all-invoices .list-item')).map(el => el.dataset.id);
+      if (e.target.checked) {
+        visibleIds.forEach(id => this.state.selectedInvoices.add(id));
+      } else {
+        visibleIds.forEach(id => this.state.selectedInvoices.delete(id));
+      }
+      this.renderInvoices();
+    });
+    document.getElementById('invoice-delete-selected').addEventListener('click', () => {
+      const ids = Array.from(this.state.selectedInvoices);
+      if (ids.length === 0) return;
+      this.showConfirm('Delete', `Remove ${ids.length} invoice${ids.length > 1 ? 's' : ''}?`, () => {
+        ids.forEach(id => DataStore.deleteInvoice(id));
+        this.state.selectedInvoices.clear();
+        this.render();
+        this.toast(`${ids.length} deleted`, 'success');
+      });
+    });
+    document.getElementById('invoice-clear-selection').addEventListener('click', () => {
+      this.state.selectedInvoices.clear();
+      this.renderInvoices();
+    });
+    document.getElementById('client-select-all').addEventListener('change', (e) => {
+      const visibleIds = Array.from(document.querySelectorAll('#client-list .card')).map(el => el.dataset.id);
+      if (e.target.checked) {
+        visibleIds.forEach(id => this.state.selectedClients.add(id));
+      } else {
+        visibleIds.forEach(id => this.state.selectedClients.delete(id));
+      }
+      this.renderClients();
+    });
+    document.getElementById('client-delete-selected').addEventListener('click', () => {
+      const ids = Array.from(this.state.selectedClients);
+      if (ids.length === 0) return;
+      this.showConfirm('Delete', `Remove ${ids.length} client${ids.length > 1 ? 's' : ''}?`, () => {
+        ids.forEach(id => DataStore.deleteClient(id));
+        this.state.selectedClients.clear();
+        this.render();
+        this.toast(`${ids.length} deleted`, 'success');
+      });
+    });
+    document.getElementById('client-clear-selection').addEventListener('click', () => {
+      this.state.selectedClients.clear();
+      this.renderClients();
+    });
+  },
+
+  updateSelectAllState(type) {
+    const selected = type === 'invoice' ? this.state.selectedInvoices : this.state.selectedClients;
+    const containerId = type === 'invoice' ? 'all-invoices' : 'client-list';
+    const selector = type === 'invoice' ? '.list-item' : '.card';
+    const checkbox = document.getElementById(`${type}-select-all`);
+    const visibleIds = Array.from(document.querySelectorAll(`#${containerId} ${selector}`)).map(el => el.dataset.id);
+    if (visibleIds.length === 0) {
+      checkbox.checked = false;
+      checkbox.indeterminate = false;
+      return;
+    }
+    const allSelected = visibleIds.every(id => selected.has(id));
+    const someSelected = visibleIds.some(id => selected.has(id));
+    checkbox.checked = allSelected;
+    checkbox.indeterminate = !allSelected && someSelected;
+  },
+
+  updateBulkActionsUI(type) {
+    const selected = type === 'invoice' ? this.state.selectedInvoices : this.state.selectedClients;
+    const bar = document.getElementById(`${type}-bulk-actions`);
+    const count = bar.querySelector('.bulk-count');
+    if (selected.size > 0) {
+      bar.classList.remove('hidden');
+      count.textContent = `${selected.size} selected`;
+    } else {
+      bar.classList.add('hidden');
+    }
+  },
+
+  // Template Selection Modal
+  bindTemplateSelect() {
+    document.getElementById('back-to-templates').addEventListener('click', () => {
+      document.getElementById('template-preview-area').classList.add('hidden');
+      document.getElementById('template-preview-grid').classList.remove('hidden');
+    });
+
+    document.getElementById('use-template-export').addEventListener('click', () => {
+      const selectedTemplate = document.querySelector('.template-card.selected');
+      if (!selectedTemplate) {
+        this.toast('Please select a template', 'warning');
+        return;
+      }
+
+      const templateId = selectedTemplate.dataset.template;
+      const setAsDefault = document.getElementById('set-as-default').checked;
+
+      if (setAsDefault) {
+        const settings = DataStore.getSettings();
+        settings.pdfTemplate = templateId;
+        DataStore.saveSettings(settings);
+        this.toast('Template set as default', 'success');
+      }
+
+      if (this.pendingInvoiceExport) {
+        const { invoice, client, settings } = this.pendingInvoiceExport;
+        PDFHandler.exportInvoice(invoice, client, settings, templateId);
+        this.toast('PDF exported', 'success');
+      }
+
+      this.closeModal('template-select-modal');
+      this.pendingInvoiceExport = null;
+    });
+  },
+
+  async showTemplateSelectModal(invoice, client, settings) {
+    const templates = PDFHandler.getTemplateList();
+    const grid = document.getElementById('template-preview-grid');
+    const previewArea = document.getElementById('template-preview-area');
+
+    previewArea.classList.add('hidden');
+    grid.classList.remove('hidden');
+    document.getElementById('set-as-default').checked = false;
+
+    grid.innerHTML = templates.map(t => `
+      <div class="template-card" data-template="${t.id}">
+        <div class="template-card-name">${t.name}</div>
+        <div class="template-card-desc">${t.description}</div>
+      </div>
+    `).join('');
+
+    grid.querySelectorAll('.template-card').forEach(card => {
+      card.addEventListener('click', async () => {
+        const templateId = card.dataset.template;
+        const template = templates.find(t => t.id === templateId);
+
+        grid.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+
+        grid.classList.add('hidden');
+        previewArea.classList.remove('hidden');
+
+        document.getElementById('preview-template-name').textContent = template.name;
+        document.getElementById('preview-template-desc').textContent = template.description;
+
+        try {
+          const previewDataUrl = await PDFHandler.generatePreview(invoice, client, settings, templateId);
+          const iframe = document.getElementById('template-preview-iframe');
+          iframe.src = previewDataUrl;
+        } catch (err) {
+          console.error('Preview failed:', err);
+        }
+      });
+    });
+
+    this.openModal('template-select-modal');
   },
 
   escapeHtml(text) {

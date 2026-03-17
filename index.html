@@ -123,6 +123,18 @@
             </button>
           </div>
         </div>
+        <div class="search-bar">
+          <label class="select-all-label" id="invoice-select-all-wrap">
+            <input type="checkbox" id="invoice-select-all">
+            <span>Select all</span>
+          </label>
+          <input type="text" id="invoice-search" class="search-input" placeholder="Search invoices...">
+          <div id="invoice-bulk-actions" class="bulk-actions hidden">
+            <span class="bulk-count"></span>
+            <button id="invoice-delete-selected" class="btn btn-sm btn-danger">Delete</button>
+            <button id="invoice-clear-selection" class="btn btn-sm btn-ghost">Clear</button>
+          </div>
+        </div>
         <div id="all-invoices" class="list"></div>
         <input type="file" id="invoice-import-file" accept=".json" class="hidden">
       </section>
@@ -154,6 +166,18 @@
               </svg>
               Add
             </button>
+          </div>
+        </div>
+        <div class="search-bar">
+          <label class="select-all-label" id="client-select-all-wrap">
+            <input type="checkbox" id="client-select-all">
+            <span>Select all</span>
+          </label>
+          <input type="text" id="client-search" class="search-input" placeholder="Search clients...">
+          <div id="client-bulk-actions" class="bulk-actions hidden">
+            <span class="bulk-count"></span>
+            <button id="client-delete-selected" class="btn btn-sm btn-danger">Delete</button>
+            <button id="client-clear-selection" class="btn btn-sm btn-ghost">Clear</button>
           </div>
         </div>
         <div id="client-list" class="grid"></div>
@@ -228,6 +252,30 @@
             <label for="setting-counter">Next Number</label>
             <input type="number" id="setting-counter" min="1" value="1">
           </div>
+          <div class="field">
+            <label>Default PDF Template</label>
+            <div id="settings-template-grid" class="template-grid settings-template-grid"></div>
+            <div id="settings-template-preview" class="settings-template-preview hidden">
+              <div class="settings-preview-header">
+                <span id="settings-preview-template-name" class="settings-preview-name"></span>
+                <button id="settings-preview-close" class="btn btn-xs btn-ghost">&times; Close</button>
+              </div>
+              <div class="template-preview-frame settings-preview-frame">
+                <iframe id="settings-preview-iframe"></iframe>
+              </div>
+            </div>
+          </div>
+          <input type="hidden" id="setting-pdf-template" value="">
+          <div class="field-row">
+            <div class="field">
+              <label for="setting-tax-rate">Default Tax Rate (%)</label>
+              <input type="number" id="setting-tax-rate" min="0" max="100" step="0.01" placeholder="0" value="0">
+            </div>
+            <div class="field">
+              <label for="setting-tax-label">Tax Label</label>
+              <input type="text" id="setting-tax-label" placeholder="Tax" value="Tax">
+            </div>
+          </div>
           <div class="backup-section">
             <label class="backup-label">Data Migration</label>
             <p class="backup-desc">Export everything to move to a new device. Import to restore from a backup.</p>
@@ -240,6 +288,43 @@
         </div>
         <div class="modal-foot">
           <button id="save-settings-btn" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PDF Template Selection Modal -->
+    <div id="template-select-modal" class="modal hidden">
+      <div class="modal-overlay"></div>
+      <div class="modal-content modal-lg">
+        <div class="modal-head">
+          <h2>Choose PDF Template</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">Select a template for your invoice PDF. Click to preview.</p>
+          <div id="template-preview-grid" class="template-grid"></div>
+          <div id="template-preview-area" class="template-preview hidden">
+            <div class="template-preview-header">
+              <h3 id="preview-template-name"></h3>
+              <button id="back-to-templates" class="btn btn-sm btn-ghost">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                Back
+              </button>
+            </div>
+            <p id="preview-template-desc" class="template-preview-desc"></p>
+            <div class="template-preview-frame">
+              <iframe id="template-preview-iframe"></iframe>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <label class="checkbox-label">
+            <input type="checkbox" id="set-as-default">
+            <span>Set as default template</span>
+          </label>
+          <button id="use-template-export" class="btn btn-primary">Export PDF</button>
         </div>
       </div>
     </div>
@@ -296,6 +381,16 @@
           <div class="field">
             <label for="invoice-notes">Notes</label>
             <textarea id="invoice-notes" rows="2" placeholder="Payment terms, thank you..."></textarea>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="invoice-tax-rate">Tax Rate (%)</label>
+              <input type="number" id="invoice-tax-rate" min="0" max="100" step="0.01" placeholder="0" value="0">
+            </div>
+            <div class="field">
+              <label for="invoice-tax-label">Tax Label</label>
+              <input type="text" id="invoice-tax-label" placeholder="Tax" value="Tax">
+            </div>
           </div>
           <div class="items-section">
             <div class="items-head">

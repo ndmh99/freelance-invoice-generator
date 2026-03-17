@@ -4,6 +4,10 @@ const App = {
     editingInvoiceId: null,
     editingClientId: null,
     editingTemplateId: null,
+    invoiceSearch: '',
+    clientSearch: '',
+    selectedInvoices: new Set(),
+    selectedClients: new Set(),
   },
   pendingInvoiceExport: null,
 
@@ -19,6 +23,8 @@ const App = {
     this.bindImport();
     this.bindConfirm();
     this.bindTemplateSelect();
+    this.bindSearch();
+    this.bindBulkActions();
     this.render();
     this.updateOnlineStatus();
     window.addEventListener('online', () => this.updateOnlineStatus());
@@ -202,13 +208,18 @@ const App = {
       : '<div class="empty">No invoices yet</div>';
   },
 
-  renderInvoiceItem(inv) {
+  renderInvoiceItem(inv, selectable = false) {
     const client = DataStore.getClient(inv.clientId);
     const total = DataStore.calcInvoiceTotal(inv);
     const settings = DataStore.getSettings();
     const statusLabel = inv.status.charAt(0).toUpperCase() + inv.status.slice(1);
+    const isSelected = this.state.selectedInvoices.has(inv.id);
+    const checkbox = selectable
+      ? `<label class="list-item-checkbox"><input type="checkbox" data-select-invoice="${inv.id}" ${isSelected ? 'checked' : ''}></label>`
+      : '';
     return `
-      <div class="list-item" data-id="${inv.id}">
+      <div class="list-item${isSelected ? ' selected' : ''}" data-id="${inv.id}">
+        ${checkbox}
         <div class="list-item-main">
           <div class="list-item-title">
             ${inv.number}
@@ -384,18 +395,33 @@ const App = {
     });
 
     document.getElementById('all-invoices').addEventListener('click', (e) => {
+      const checkbox = e.target.closest('[data-select-invoice]');
+      if (checkbox) {
+        e.stopPropagation();
+        const id = checkbox.dataset.selectInvoice;
+        if (checkbox.checked) {
+          this.state.selectedInvoices.add(id);
+        } else {
+          this.state.selectedInvoices.delete(id);
+        }
+        checkbox.closest('.list-item').classList.toggle('selected', checkbox.checked);
+        this.updateBulkActionsUI('invoice');
+        this.updateSelectAllState('invoice');
+        return;
+      }
       const deleteBtn = e.target.closest('.btn-delete-invoice');
       if (deleteBtn) {
         e.stopPropagation();
         this.showConfirm('Delete', 'Remove this invoice?', () => {
           DataStore.deleteInvoice(deleteBtn.dataset.id);
+          this.state.selectedInvoices.delete(deleteBtn.dataset.id);
           this.render();
           this.toast('Deleted', 'success');
         });
         return;
       }
       const item = e.target.closest('.list-item');
-      if (item) this.editInvoice(item.dataset.id);
+      if (item && !e.target.closest('.list-item-checkbox')) this.editInvoice(item.dataset.id);
     });
 
     document.getElementById('recent-invoices').addEventListener('click', (e) => {
@@ -437,6 +463,7 @@ const App = {
 
   renderInvoices() {
     const filter = document.getElementById('invoice-filter').value;
+    const search = this.state.invoiceSearch.toLowerCase().trim();
     let invoices = DataStore.getInvoices().sort((a, b) =>
       new Date(b.createdAt) - new Date(a.createdAt)
     );
@@ -450,10 +477,22 @@ const App = {
         invoices = invoices.filter(i => i.status === filter);
       }
     }
+    if (search) {
+      invoices = invoices.filter(inv => {
+        const client = DataStore.getClient(inv.clientId);
+        const clientName = client ? client.name.toLowerCase() : '';
+        const number = (inv.number || '').toLowerCase();
+        const status = (inv.status || '').toLowerCase();
+        const notes = (inv.notes || '').toLowerCase();
+        return number.includes(search) || clientName.includes(search) || status.includes(search) || notes.includes(search);
+      });
+    }
     const container = document.getElementById('all-invoices');
     container.innerHTML = invoices.length
-      ? invoices.map(inv => this.renderInvoiceItem(inv)).join('')
+      ? invoices.map(inv => this.renderInvoiceItem(inv, true)).join('')
       : '<div class="empty">No invoices</div>';
+    this.updateBulkActionsUI('invoice');
+    this.updateSelectAllState('invoice');
   },
 
   addLineItem(containerId, data = null) {
@@ -595,6 +634,20 @@ const App = {
     });
 
     document.getElementById('client-list').addEventListener('click', (e) => {
+      const checkbox = e.target.closest('[data-select-client]');
+      if (checkbox) {
+        e.stopPropagation();
+        const id = checkbox.dataset.selectClient;
+        if (checkbox.checked) {
+          this.state.selectedClients.add(id);
+        } else {
+          this.state.selectedClients.delete(id);
+        }
+        checkbox.closest('.card').classList.toggle('selected', checkbox.checked);
+        this.updateBulkActionsUI('client');
+        this.updateSelectAllState('client');
+        return;
+      }
       const deleteBtn = e.target.closest('.btn-delete-client');
       if (deleteBtn) {
         e.stopPropagation();
@@ -606,13 +659,14 @@ const App = {
           : `Delete "${client.name}"?`;
         this.showConfirm('Delete Client', message, () => {
           DataStore.deleteClient(id);
+          this.state.selectedClients.delete(id);
           this.render();
           this.toast('Client deleted', 'success');
         });
         return;
       }
       const card = e.target.closest('.card');
-      if (card) this.editClient(card.dataset.id);
+      if (card && !e.target.closest('.card-checkbox')) this.editClient(card.dataset.id);
     });
   },
 
@@ -633,11 +687,23 @@ const App = {
   },
 
   renderClients() {
-    const clients = DataStore.getClients().sort((a, b) => a.name.localeCompare(b.name));
+    const search = this.state.clientSearch.toLowerCase().trim();
+    let clients = DataStore.getClients().sort((a, b) => a.name.localeCompare(b.name));
+    if (search) {
+      clients = clients.filter(c => {
+        const name = (c.name || '').toLowerCase();
+        const email = (c.email || '').toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        const address = (c.address || '').toLowerCase();
+        return name.includes(search) || email.includes(search) || phone.includes(search) || address.includes(search);
+      });
+    }
     const invoices = DataStore.getInvoices();
     const container = document.getElementById('client-list');
     if (clients.length === 0) {
       container.innerHTML = '<div class="empty">No clients</div>';
+      this.updateBulkActionsUI('client');
+      this.updateSelectAllState('client');
       return;
     }
     container.innerHTML = clients.map(c => {
@@ -646,8 +712,10 @@ const App = {
       const totalBilled = invoices.filter(i => i.clientId === c.id)
         .reduce((sum, i) => sum + DataStore.calcInvoiceTotal(i), 0);
       const settings = DataStore.getSettings();
+      const isSelected = this.state.selectedClients.has(c.id);
       return `
-        <div class="card" data-id="${c.id}">
+        <div class="card${isSelected ? ' selected' : ''}" data-id="${c.id}">
+          <label class="card-checkbox"><input type="checkbox" data-select-client="${c.id}" ${isSelected ? 'checked' : ''}></label>
           <button class="card-delete btn-delete-client" data-id="${c.id}" title="Delete client">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
@@ -673,6 +741,8 @@ const App = {
         </div>
       `;
     }).join('');
+    this.updateBulkActionsUI('client');
+    this.updateSelectAllState('client');
   },
 
   // Templates
@@ -1041,6 +1111,102 @@ const App = {
       if (this.confirmCallback) this.confirmCallback();
     };
     okBtn.addEventListener('click', handler);
+  },
+
+  bindSearch() {
+    let invoiceTimer, clientTimer;
+    document.getElementById('invoice-search').addEventListener('input', (e) => {
+      clearTimeout(invoiceTimer);
+      invoiceTimer = setTimeout(() => {
+        this.state.invoiceSearch = e.target.value;
+        this.renderInvoices();
+      }, 200);
+    });
+    document.getElementById('client-search').addEventListener('input', (e) => {
+      clearTimeout(clientTimer);
+      clientTimer = setTimeout(() => {
+        this.state.clientSearch = e.target.value;
+        this.renderClients();
+      }, 200);
+    });
+  },
+
+  bindBulkActions() {
+    document.getElementById('invoice-select-all').addEventListener('change', (e) => {
+      const visibleIds = Array.from(document.querySelectorAll('#all-invoices .list-item')).map(el => el.dataset.id);
+      if (e.target.checked) {
+        visibleIds.forEach(id => this.state.selectedInvoices.add(id));
+      } else {
+        visibleIds.forEach(id => this.state.selectedInvoices.delete(id));
+      }
+      this.renderInvoices();
+    });
+    document.getElementById('invoice-delete-selected').addEventListener('click', () => {
+      const ids = Array.from(this.state.selectedInvoices);
+      if (ids.length === 0) return;
+      this.showConfirm('Delete', `Remove ${ids.length} invoice${ids.length > 1 ? 's' : ''}?`, () => {
+        ids.forEach(id => DataStore.deleteInvoice(id));
+        this.state.selectedInvoices.clear();
+        this.render();
+        this.toast(`${ids.length} deleted`, 'success');
+      });
+    });
+    document.getElementById('invoice-clear-selection').addEventListener('click', () => {
+      this.state.selectedInvoices.clear();
+      this.renderInvoices();
+    });
+    document.getElementById('client-select-all').addEventListener('change', (e) => {
+      const visibleIds = Array.from(document.querySelectorAll('#client-list .card')).map(el => el.dataset.id);
+      if (e.target.checked) {
+        visibleIds.forEach(id => this.state.selectedClients.add(id));
+      } else {
+        visibleIds.forEach(id => this.state.selectedClients.delete(id));
+      }
+      this.renderClients();
+    });
+    document.getElementById('client-delete-selected').addEventListener('click', () => {
+      const ids = Array.from(this.state.selectedClients);
+      if (ids.length === 0) return;
+      this.showConfirm('Delete', `Remove ${ids.length} client${ids.length > 1 ? 's' : ''}?`, () => {
+        ids.forEach(id => DataStore.deleteClient(id));
+        this.state.selectedClients.clear();
+        this.render();
+        this.toast(`${ids.length} deleted`, 'success');
+      });
+    });
+    document.getElementById('client-clear-selection').addEventListener('click', () => {
+      this.state.selectedClients.clear();
+      this.renderClients();
+    });
+  },
+
+  updateSelectAllState(type) {
+    const selected = type === 'invoice' ? this.state.selectedInvoices : this.state.selectedClients;
+    const containerId = type === 'invoice' ? 'all-invoices' : 'client-list';
+    const selector = type === 'invoice' ? '.list-item' : '.card';
+    const checkbox = document.getElementById(`${type}-select-all`);
+    const visibleIds = Array.from(document.querySelectorAll(`#${containerId} ${selector}`)).map(el => el.dataset.id);
+    if (visibleIds.length === 0) {
+      checkbox.checked = false;
+      checkbox.indeterminate = false;
+      return;
+    }
+    const allSelected = visibleIds.every(id => selected.has(id));
+    const someSelected = visibleIds.some(id => selected.has(id));
+    checkbox.checked = allSelected;
+    checkbox.indeterminate = !allSelected && someSelected;
+  },
+
+  updateBulkActionsUI(type) {
+    const selected = type === 'invoice' ? this.state.selectedInvoices : this.state.selectedClients;
+    const bar = document.getElementById(`${type}-bulk-actions`);
+    const count = bar.querySelector('.bulk-count');
+    if (selected.size > 0) {
+      bar.classList.remove('hidden');
+      count.textContent = `${selected.size} selected`;
+    } else {
+      bar.classList.add('hidden');
+    }
   },
 
   // Template Selection Modal

@@ -123,6 +123,18 @@
             </button>
           </div>
         </div>
+        <div class="search-bar">
+          <label class="select-all-label" id="invoice-select-all-wrap">
+            <input type="checkbox" id="invoice-select-all">
+            <span>Select all</span>
+          </label>
+          <input type="text" id="invoice-search" class="search-input" placeholder="Search invoices...">
+          <div id="invoice-bulk-actions" class="bulk-actions hidden">
+            <span class="bulk-count"></span>
+            <button id="invoice-delete-selected" class="btn btn-sm btn-danger">Delete</button>
+            <button id="invoice-clear-selection" class="btn btn-sm btn-ghost">Clear</button>
+          </div>
+        </div>
         <div id="all-invoices" class="list"></div>
         <input type="file" id="invoice-import-file" accept=".json" class="hidden">
       </section>
@@ -154,6 +166,18 @@
               </svg>
               Add
             </button>
+          </div>
+        </div>
+        <div class="search-bar">
+          <label class="select-all-label" id="client-select-all-wrap">
+            <input type="checkbox" id="client-select-all">
+            <span>Select all</span>
+          </label>
+          <input type="text" id="client-search" class="search-input" placeholder="Search clients...">
+          <div id="client-bulk-actions" class="bulk-actions hidden">
+            <span class="bulk-count"></span>
+            <button id="client-delete-selected" class="btn btn-sm btn-danger">Delete</button>
+            <button id="client-clear-selection" class="btn btn-sm btn-ghost">Clear</button>
           </div>
         </div>
         <div id="client-list" class="grid"></div>

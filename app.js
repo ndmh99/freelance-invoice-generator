@@ -1117,20 +1117,7 @@ const App = {
         try {
           const previewDataUrl = await PDFHandler.generatePreview(invoice, client, settings, templateId);
           const iframe = document.getElementById('template-preview-iframe');
-          iframe.srcdoc = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <style>
-                body { margin: 0; padding: 0; }
-                embed { width: 100%; height: 100vh; }
-              </style>
-            </head>
-            <body>
-              <embed src="${previewDataUrl}" type="application/pdf" width="100%" height="100%">
-            </body>
-            </html>
-          `;
+          iframe.src = previewDataUrl;
         } catch (err) {
           console.error('Preview failed:', err);
         }

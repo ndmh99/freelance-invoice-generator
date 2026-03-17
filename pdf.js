@@ -12,7 +12,7 @@ const PDFHandler = {
 
         doc.setFont('helvetica');
 
-        // Header - Company info
+        // Header
         doc.setFontSize(22);
         doc.setFont('helvetica', 'bold');
         doc.text(settings.company || 'INVOICE', margin, y + 8);
@@ -34,7 +34,7 @@ const PDFHandler = {
         }
         y += 4;
 
-        // Invoice meta - right side
+        // Invoice details
         let metaY = margin;
         doc.setFontSize(10);
         doc.setTextColor(0);
@@ -46,7 +46,6 @@ const PDFHandler = {
         doc.text(invoice.number || '', pageWidth - margin, metaY, { align: 'right' });
         metaY += 12;
 
-        // Status with color
         const statusColors = {
           draft: [96, 165, 250],
           sent: [251, 191, 36],
@@ -73,13 +72,12 @@ const PDFHandler = {
         }
         y = Math.max(y, metaY + 8);
 
-        // Divider
         doc.setDrawColor(220);
         doc.setLineWidth(0.5);
         doc.line(margin, y, pageWidth - margin, y);
         y += 10;
 
-        // Client info
+        // Bill To
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(100);
@@ -104,7 +102,6 @@ const PDFHandler = {
         const colWidths = [contentWidth * 0.46, contentWidth * 0.14, contentWidth * 0.2, contentWidth * 0.2];
         const colX = [margin + 4, margin + colWidths[0] + 4, margin + colWidths[0] + colWidths[1] + 4, margin + contentWidth * 0.8 - 4];
 
-        // Table header
         doc.setFillColor(26, 26, 46);
         doc.rect(margin, y - 4, contentWidth, 8, 'F');
         doc.setFontSize(8);
@@ -117,7 +114,6 @@ const PDFHandler = {
         doc.text('AMOUNT', colX[3] + colWidths[3], y, { align: 'right' });
         y += 6;
 
-        // Table rows
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(40);
         doc.setFontSize(9);
@@ -193,44 +189,41 @@ const PDFHandler = {
         const contentWidth = pageWidth - margin * 2;
         let y = margin;
 
-        // Professional color palette
-        const darkNavy   = [33, 41, 61];
-        const charcoal   = [55, 55, 65];
-        const textDark   = [40, 40, 50];
+        const darkNavy = [33, 41, 61];
+        const charcoal = [55, 55, 65];
+        const textDark = [40, 40, 50];
         const textMedium = [85, 85, 95];
-        const textLight  = [130, 130, 140];
+        const textLight = [130, 130, 140];
         const borderDark = [60, 60, 75];
         const borderLight = [200, 200, 210];
-        const subtleBg   = [248, 248, 252];
+        const subtleBg = [248, 248, 252];
         const tableHeader = [48, 48, 65];
-        const rowAlt     = [250, 250, 253];
+        const rowAlt = [250, 250, 253];
 
         const statusColors = {
-          draft:   [130, 130, 145],
-          sent:    [60, 100, 160],
-          paid:    [45, 135, 75],
+          draft: [130, 130, 145],
+          sent: [60, 100, 160],
+          paid: [45, 135, 75],
           overdue: [180, 55, 55],
         };
 
-        // Top accent line (thick navy bar)
+        // Header
         doc.setFillColor(...darkNavy);
         doc.rect(margin, y, contentWidth, 2.5, 'F');
         y += 14;
 
-        // Header - Invoice title with elegant spacing
         doc.setFont('times', 'bold');
         doc.setFontSize(32);
         doc.setTextColor(...darkNavy);
         doc.text('INVOICE', margin, y);
         y += 4;
 
-        // Thin decorative rule under title
         doc.setDrawColor(...darkNavy);
         doc.setLineWidth(0.6);
         doc.line(margin, y, margin + 45, y);
         y += 12;
 
-        // Company information
+        // Company info
         doc.setFont('times', 'normal');
         doc.setFontSize(10);
         doc.setTextColor(...textMedium);
@@ -256,22 +249,19 @@ const PDFHandler = {
           });
         }
 
-        // Invoice details panel (right side) - elegant bordered box
+        // Invoice details
         const boxW = 90;
         const boxX = pageWidth - margin - boxW;
         const boxY = margin + 12;
-        
-        // Box background and border
+
         doc.setFillColor(...subtleBg);
         doc.setDrawColor(...borderLight);
         doc.setLineWidth(0.4);
         doc.rect(boxX, boxY, boxW, 48, 'FD');
-        
-        // Left accent bar on the box
+
         doc.setFillColor(...darkNavy);
         doc.rect(boxX, boxY, 2, 48, 'F');
 
-        // Invoice number (prominent)
         doc.setFont('times', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(...textLight);
@@ -281,12 +271,10 @@ const PDFHandler = {
         doc.setTextColor(...textDark);
         doc.text(invoice.number || '', boxX + 10, boxY + 18);
 
-        // Separator
         doc.setDrawColor(...borderLight);
         doc.setLineWidth(0.3);
         doc.line(boxX + 10, boxY + 23, boxX + boxW - 8, boxY + 23);
 
-        // Dates
         doc.setFont('times', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(...textLight);
@@ -305,7 +293,6 @@ const PDFHandler = {
         doc.setTextColor(...textDark);
         doc.text(invoice.dueDate || '—', boxX + 48, boxY + 37);
 
-        // Status badge
         const statusText = (invoice.status || 'DRAFT').toUpperCase();
         const statusColor = statusColors[invoice.status] || textLight;
         const statusW = doc.getTextWidth(statusText) + 12;
@@ -318,13 +305,12 @@ const PDFHandler = {
 
         y = Math.max(y + 5, boxY + 58);
 
-        // Horizontal rule
         doc.setDrawColor(...borderLight);
         doc.setLineWidth(0.5);
         doc.line(margin, y, pageWidth - margin, y);
         y += 10;
 
-        // Bill To section
+        // Bill To
         doc.setFont('times', 'bold');
         doc.setFontSize(9);
         doc.setTextColor(...textLight);
@@ -350,24 +336,22 @@ const PDFHandler = {
           if (client.taxId) {
             doc.setTextColor(...textLight);
             doc.setFontSize(8.5);
-            doc.text('Tax ID: ' + client.taxId, margin, y); 
+            doc.text('Tax ID: ' + client.taxId, margin, y);
             y += 4.5;
           }
         }
         y += 12;
 
-        // Table with professional styling
+        // Line items table
         const colWidths = [contentWidth * 0.44, contentWidth * 0.14, contentWidth * 0.21, contentWidth * 0.21];
         const colX = [margin, margin + colWidths[0], margin + colWidths[0] + colWidths[1], margin + colWidths[0] + colWidths[1] + colWidths[2]];
 
-        // Table header with navy background
         doc.setFillColor(...tableHeader);
         doc.rect(margin, y, contentWidth, 12, 'F');
-        
-        // Subtle inner highlight on header
+
         doc.setFillColor(58, 58, 78);
         doc.rect(margin, y, contentWidth, 0.5, 'F');
-        
+
         doc.setFont('times', 'bold');
         doc.setFontSize(8);
         doc.setTextColor(190, 190, 210);
@@ -378,7 +362,6 @@ const PDFHandler = {
         doc.text('AMOUNT', colX[3] + colWidths[3] - 5, headerY, { align: 'right' });
         y += 12;
 
-        // Table rows
         doc.setFont('times', 'normal');
         doc.setTextColor(...textDark);
         doc.setFontSize(9.5);
@@ -389,7 +372,6 @@ const PDFHandler = {
             y = margin;
           }
 
-          // Alternating row background
           if (idx % 2 === 0) {
             doc.setFillColor(...rowAlt);
             doc.rect(margin, y, contentWidth, 10, 'F');
@@ -397,43 +379,36 @@ const PDFHandler = {
 
           const amount = (Number(item.qty) || 0) * (Number(item.rate) || 0);
           const rowMidY = y + 7;
-          
-          // Description
+
           doc.setTextColor(...textDark);
           doc.text(item.description || '', colX[0] + 5, rowMidY);
-          
-          // Quantity
+
           doc.setTextColor(...textMedium);
           doc.text(String(item.qty || 0), colX[1] + 5, rowMidY);
-          
-          // Rate
+
           doc.text(settings.currency + Number(item.rate || 0).toFixed(2), colX[2] + 5, rowMidY);
-          
-          // Amount (bold)
+
           doc.setFont('times', 'bold');
           doc.setTextColor(...textDark);
           doc.text(settings.currency + amount.toFixed(2), colX[3] + colWidths[3] - 5, rowMidY, { align: 'right' });
           doc.setFont('times', 'normal');
-          
+
           y += 10;
 
-          // Subtle row separator
           doc.setDrawColor(230, 230, 238);
           doc.setLineWidth(0.2);
           doc.line(margin, y, pageWidth - margin, y);
         });
 
-        // Table bottom border (thicker)
         doc.setDrawColor(...borderDark);
         doc.setLineWidth(0.6);
         doc.line(margin, y, pageWidth - margin, y);
         y += 8;
 
-        // Summary section
+        // Summary
         const summaryBoxW = 120;
         const summaryBoxX = pageWidth - margin - summaryBoxW;
 
-        // Subtotal
         const total = DataStore.calcInvoiceTotal(invoice);
         doc.setFont('times', 'normal');
         doc.setFontSize(9);
@@ -442,20 +417,17 @@ const PDFHandler = {
         doc.text(settings.currency + total.toFixed(2), pageWidth - margin - 5, y + 3, { align: 'right' });
         y += 8;
 
-        // Thin separator
         doc.setDrawColor(...borderLight);
         doc.setLineWidth(0.3);
         doc.line(summaryBoxX + 10, y, pageWidth - margin - 5, y);
         y += 8;
 
-        // Total box with accent
         const totalBoxH = 16;
         doc.setFillColor(...subtleBg);
         doc.setDrawColor(...borderLight);
         doc.setLineWidth(0.4);
         doc.rect(summaryBoxX, y - 3, summaryBoxW, totalBoxH, 'FD');
-        
-        // Left accent bar
+
         doc.setFillColor(...darkNavy);
         doc.rect(summaryBoxX, y - 3, 2.5, totalBoxH, 'F');
 
@@ -468,14 +440,13 @@ const PDFHandler = {
         doc.text(settings.currency + total.toFixed(2), pageWidth - margin - 8, y + 6, { align: 'right' });
         y += totalBoxH + 10;
 
-        // Notes section
+        // Notes
         if (invoice.notes) {
           if (y > pageHeight - 55) {
             doc.addPage();
             y = margin;
           }
-          
-          // Notes header with subtle background
+
           doc.setFillColor(250, 250, 252);
           doc.rect(margin, y, contentWidth, 8, 'F');
           doc.setFont('times', 'bold');
@@ -498,19 +469,16 @@ const PDFHandler = {
 
         // Footer
         const footerY = pageHeight - 22;
-        
-        // Footer separator
+
         doc.setDrawColor(...borderLight);
         doc.setLineWidth(0.4);
         doc.line(margin, footerY, pageWidth - margin, footerY);
-        
-        // Thank you message
+
         doc.setFont('times', 'italic');
         doc.setFontSize(8);
         doc.setTextColor(...textLight);
         doc.text('Thank you for your business', pageWidth / 2, footerY + 6, { align: 'center' });
-        
-        // Company name in footer
+
         if (settings.company) {
           doc.setFont('times', 'normal');
           doc.setFontSize(7);
@@ -533,14 +501,14 @@ const PDFHandler = {
 
         doc.setFont('helvetica');
 
-        const inkDark     = [30, 30, 35];
-        const inkMedium   = [60, 60, 70];
-        const inkMuted    = [110, 110, 125];
-        const inkFaint    = [160, 160, 175];
-        const accentLine  = [30, 30, 35];
-        const ruleLight   = [220, 220, 228];
-        const ruleMedium  = [195, 195, 210];
-        const bgSubtle    = [247, 247, 250];
+        const inkDark = [30, 30, 35];
+        const inkMedium = [60, 60, 70];
+        const inkMuted = [110, 110, 125];
+        const inkFaint = [160, 160, 175];
+        const accentLine = [30, 30, 35];
+        const ruleLight = [220, 220, 228];
+        const ruleMedium = [195, 195, 210];
+        const bgSubtle = [247, 247, 250];
 
         const statusColors = {
           draft:   [96, 165, 250],
@@ -549,7 +517,7 @@ const PDFHandler = {
           overdue: [248, 113, 113],
         };
 
-        // ─── HEADER ───
+        // Header
         doc.setFontSize(32);
         doc.setFont('helvetica', 'light');
         doc.setTextColor(...inkDark);
@@ -561,7 +529,7 @@ const PDFHandler = {
         doc.line(margin, y + 4, margin + 32, y + 4);
         y += 16;
 
-        // Company info (left side)
+        // Company info
         let leftY = y;
         if (settings.company) {
           doc.setFontSize(10);
@@ -585,7 +553,7 @@ const PDFHandler = {
           });
         }
 
-        // Status and dates (right side)
+        // Invoice details
         const statusText = (invoice.status || 'DRAFT').toUpperCase();
         const statusColor = statusColors[invoice.status] || [100, 100, 100];
         doc.setTextColor(...statusColor);
@@ -598,23 +566,22 @@ const PDFHandler = {
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...inkMuted);
         if (invoice.issueDate) {
-          doc.text('Issued  ' + invoice.issueDate, metaX, rightY, { align: 'right' });
+          doc.text('Issued ' + invoice.issueDate, metaX, rightY, { align: 'right' });
           rightY += 5;
         }
         if (invoice.dueDate) {
-          doc.text('Due  ' + invoice.dueDate, metaX, rightY, { align: 'right' });
+          doc.text('Due ' + invoice.dueDate, metaX, rightY, { align: 'right' });
           rightY += 5;
         }
 
         y = Math.max(leftY, rightY) + 10;
 
-        // ─── THICK RULE ───
         doc.setDrawColor(...accentLine);
         doc.setLineWidth(0.5);
         doc.line(margin, y, pageWidth - margin, y);
         y += 14;
 
-        // ─── BILL TO ───
+        // Bill To
         doc.setFontSize(7.5);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...inkFaint);
@@ -652,11 +619,10 @@ const PDFHandler = {
         }
         y += 14;
 
-        // ─── LINE ITEMS TABLE ───
-        const colDesc   = contentWidth * 0.44;
-        const colQty    = contentWidth * 0.14;
-        const colRate   = contentWidth * 0.21;
-        const colAmount = contentWidth * 0.21;
+        // Line items table
+        const colDesc = contentWidth * 0.44;
+        const colQty = contentWidth * 0.14;
+        const colRate = contentWidth * 0.21;
         const colX = [
           margin,
           margin + colDesc,
@@ -678,7 +644,6 @@ const PDFHandler = {
         doc.line(margin, y, pageWidth - margin, y);
         y += 7;
 
-        // Items
         const items = invoice.items || [];
         items.forEach(item => {
           if (y > pageHeight - 60) {
@@ -709,7 +674,7 @@ const PDFHandler = {
           y += 5;
         });
 
-        // ─── TOTAL ───
+        // Total
         y += 4;
         const total = DataStore.calcInvoiceTotal(invoice);
 
@@ -731,7 +696,7 @@ const PDFHandler = {
 
         y += 24;
 
-        // ─── NOTES ───
+        // Notes
         if (invoice.notes) {
           if (y > pageHeight - 40) {
             doc.addPage();
@@ -756,7 +721,7 @@ const PDFHandler = {
           y += 8;
         }
 
-        // ─── FOOTER ───
+        // Footer
         const footerY = pageHeight - 14;
         doc.setDrawColor(...ruleLight);
         doc.setLineWidth(0.2);
@@ -799,6 +764,7 @@ const PDFHandler = {
 
         let y = margin;
 
+        // Header
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(26);
         doc.setTextColor(...charcoal);
@@ -820,6 +786,7 @@ const PDFHandler = {
           });
         }
 
+        // Invoice details
         const metaTop = margin;
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
@@ -862,6 +829,7 @@ const PDFHandler = {
         doc.line(margin, y, pageWidth - margin, y);
         y += 12;
 
+        // Bill To
         doc.setFillColor(...warmAmber);
         doc.circle(margin + 2.5, y - 1.5, 1.8, 'F');
         doc.setFont('helvetica', 'bold');
@@ -895,6 +863,7 @@ const PDFHandler = {
         }
         y += 10;
 
+        // Line items table
         const colWidths = [
           contentWidth * 0.44,
           contentWidth * 0.14,
@@ -955,6 +924,7 @@ const PDFHandler = {
         doc.line(margin, y, pageWidth - margin, y);
         y += 14;
 
+        // Total
         const total = DataStore.calcInvoiceTotal(invoice);
         const totalBoxW = 110;
         const totalBoxX = pageWidth - margin - totalBoxW;
@@ -976,6 +946,7 @@ const PDFHandler = {
 
         y += totalBoxH + 10;
 
+        // Notes
         if (invoice.notes) {
           if (y > pageHeight - 40) {
             doc.addPage();
@@ -997,6 +968,7 @@ const PDFHandler = {
           });
         }
 
+        // Footer
         const footerY = pageHeight - 16;
         doc.setDrawColor(...hairline);
         doc.setLineWidth(0.3);

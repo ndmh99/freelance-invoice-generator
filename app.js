@@ -70,26 +70,26 @@ const App = {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    
+
     const icons = {
       success: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
       error: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
       warning: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
       info: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
     };
-    
+
     toast.innerHTML = `
       ${icons[type] || icons.info}
       <span class="toast-message">${this.escapeHtml(message)}</span>
     `;
-    
+
     container.appendChild(toast);
-    
+
     const dismiss = () => {
       toast.classList.add('removing');
       toast.addEventListener('transitionend', () => toast.remove(), { once: true });
     };
-    
+
     toast.addEventListener('click', dismiss);
     setTimeout(dismiss, 3000);
   },
@@ -411,10 +411,8 @@ const App = {
       const client = clientId ? DataStore.getClient(clientId) : null;
       const settings = DataStore.getSettings();
 
-      // Store invoice data for template selection
       this.pendingInvoiceExport = { invoice, client, settings };
 
-      // Check if user has a default template set
       const defaultTemplate = settings.pdfTemplate || null;
       if (defaultTemplate) {
         PDFHandler.exportInvoice(invoice, client, settings, defaultTemplate);
@@ -1315,12 +1313,10 @@ const App = {
     const grid = document.getElementById('template-preview-grid');
     const previewArea = document.getElementById('template-preview-area');
 
-    // Reset state
     previewArea.classList.add('hidden');
     grid.classList.remove('hidden');
     document.getElementById('set-as-default').checked = false;
 
-    // Render template cards
     grid.innerHTML = templates.map(t => `
       <div class="template-card" data-template="${t.id}">
         <div class="template-card-name">${t.name}</div>
@@ -1328,24 +1324,20 @@ const App = {
       </div>
     `).join('');
 
-    // Bind card clicks
     grid.querySelectorAll('.template-card').forEach(card => {
       card.addEventListener('click', async () => {
         const templateId = card.dataset.template;
         const template = templates.find(t => t.id === templateId);
 
-        // Update selection
         grid.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
 
-        // Show preview
         grid.classList.add('hidden');
         previewArea.classList.remove('hidden');
 
         document.getElementById('preview-template-name').textContent = template.name;
         document.getElementById('preview-template-desc').textContent = template.description;
 
-        // Generate preview
         try {
           const previewDataUrl = await PDFHandler.generatePreview(invoice, client, settings, templateId);
           const iframe = document.getElementById('template-preview-iframe');

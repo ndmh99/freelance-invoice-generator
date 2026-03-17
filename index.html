@@ -228,6 +228,16 @@
             <label for="setting-counter">Next Number</label>
             <input type="number" id="setting-counter" min="1" value="1">
           </div>
+          <div class="field">
+            <label for="setting-pdf-template">Default PDF Template</label>
+            <select id="setting-pdf-template">
+              <option value="">Always ask</option>
+              <option value="modern">Modern</option>
+              <option value="classic">Classic</option>
+              <option value="minimal">Minimal</option>
+              <option value="bold">Bold</option>
+            </select>
+          </div>
           <div class="backup-section">
             <label class="backup-label">Data Migration</label>
             <p class="backup-desc">Export everything to move to a new device. Import to restore from a backup.</p>
@@ -240,6 +250,43 @@
         </div>
         <div class="modal-foot">
           <button id="save-settings-btn" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PDF Template Selection Modal -->
+    <div id="template-select-modal" class="modal hidden">
+      <div class="modal-overlay"></div>
+      <div class="modal-content modal-lg">
+        <div class="modal-head">
+          <h2>Choose PDF Template</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">Select a template for your invoice PDF. Click to preview.</p>
+          <div id="template-preview-grid" class="template-grid"></div>
+          <div id="template-preview-area" class="template-preview hidden">
+            <div class="template-preview-header">
+              <h3 id="preview-template-name"></h3>
+              <button id="back-to-templates" class="btn btn-sm btn-ghost">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                Back
+              </button>
+            </div>
+            <p id="preview-template-desc" class="template-preview-desc"></p>
+            <div class="template-preview-frame">
+              <iframe id="template-preview-iframe" srcdoc=""></iframe>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <label class="checkbox-label">
+            <input type="checkbox" id="set-as-default">
+            <span>Set as default template</span>
+          </label>
+          <button id="use-template-export" class="btn btn-primary">Export PDF</button>
         </div>
       </div>
     </div>

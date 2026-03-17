@@ -15,6 +15,7 @@ const DataStore = {
       currency: '$',
       prefix: 'INV-',
       counter: 1,
+      pdfTemplate: '',
     },
     clients: [],
     invoices: [],

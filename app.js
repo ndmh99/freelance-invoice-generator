@@ -5,6 +5,7 @@ const App = {
     editingClientId: null,
     editingTemplateId: null,
   },
+  pendingInvoiceExport: null,
 
   init() {
     this.initTheme();
@@ -17,6 +18,7 @@ const App = {
     this.bindTemplate();
     this.bindImport();
     this.bindConfirm();
+    this.bindTemplateSelect();
     this.render();
     this.updateOnlineStatus();
     window.addEventListener('online', () => this.updateOnlineStatus());
@@ -131,6 +133,7 @@ const App = {
       document.getElementById('setting-currency').value = s.currency;
       document.getElementById('setting-prefix').value = s.prefix;
       document.getElementById('setting-counter').value = s.counter;
+      document.getElementById('setting-pdf-template').value = s.pdfTemplate || '';
       this.openModal('settings-modal');
     });
 
@@ -142,6 +145,7 @@ const App = {
         currency: document.getElementById('setting-currency').value.trim() || '$',
         prefix: document.getElementById('setting-prefix').value.trim() || 'INV-',
         counter: parseInt(document.getElementById('setting-counter').value) || 1,
+        pdfTemplate: document.getElementById('setting-pdf-template').value,
       };
       DataStore.saveSettings(settings);
       this.closeModal('settings-modal');
@@ -329,8 +333,18 @@ const App = {
       const clientId = document.getElementById('invoice-client').value;
       const client = clientId ? DataStore.getClient(clientId) : null;
       const settings = DataStore.getSettings();
-      PDFHandler.exportInvoice(invoice, client, settings);
-      this.toast('PDF exported', 'success');
+
+      // Store invoice data for template selection
+      this.pendingInvoiceExport = { invoice, client, settings };
+
+      // Check if user has a default template set
+      const defaultTemplate = settings.pdfTemplate || null;
+      if (defaultTemplate) {
+        PDFHandler.exportInvoice(invoice, client, settings, defaultTemplate);
+        this.toast('PDF exported', 'success');
+      } else {
+        this.showTemplateSelectModal(invoice, client, settings);
+      }
     });
 
     document.getElementById('invoice-filter').addEventListener('change', () => {
@@ -1027,6 +1041,103 @@ const App = {
       if (this.confirmCallback) this.confirmCallback();
     };
     okBtn.addEventListener('click', handler);
+  },
+
+  // Template Selection Modal
+  bindTemplateSelect() {
+    document.getElementById('back-to-templates').addEventListener('click', () => {
+      document.getElementById('template-preview-area').classList.add('hidden');
+      document.getElementById('template-preview-grid').classList.remove('hidden');
+    });
+
+    document.getElementById('use-template-export').addEventListener('click', () => {
+      const selectedTemplate = document.querySelector('.template-card.selected');
+      if (!selectedTemplate) {
+        this.toast('Please select a template', 'warning');
+        return;
+      }
+
+      const templateId = selectedTemplate.dataset.template;
+      const setAsDefault = document.getElementById('set-as-default').checked;
+
+      if (setAsDefault) {
+        const settings = DataStore.getSettings();
+        settings.pdfTemplate = templateId;
+        DataStore.saveSettings(settings);
+        this.toast('Template set as default', 'success');
+      }
+
+      if (this.pendingInvoiceExport) {
+        const { invoice, client, settings } = this.pendingInvoiceExport;
+        PDFHandler.exportInvoice(invoice, client, settings, templateId);
+        this.toast('PDF exported', 'success');
+      }
+
+      this.closeModal('template-select-modal');
+      this.pendingInvoiceExport = null;
+    });
+  },
+
+  async showTemplateSelectModal(invoice, client, settings) {
+    const templates = PDFHandler.getTemplateList();
+    const grid = document.getElementById('template-preview-grid');
+    const previewArea = document.getElementById('template-preview-area');
+
+    // Reset state
+    previewArea.classList.add('hidden');
+    grid.classList.remove('hidden');
+    document.getElementById('set-as-default').checked = false;
+
+    // Render template cards
+    grid.innerHTML = templates.map(t => `
+      <div class="template-card" data-template="${t.id}">
+        <div class="template-card-name">${t.name}</div>
+        <div class="template-card-desc">${t.description}</div>
+      </div>
+    `).join('');
+
+    // Bind card clicks
+    grid.querySelectorAll('.template-card').forEach(card => {
+      card.addEventListener('click', async () => {
+        const templateId = card.dataset.template;
+        const template = templates.find(t => t.id === templateId);
+
+        // Update selection
+        grid.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+
+        // Show preview
+        grid.classList.add('hidden');
+        previewArea.classList.remove('hidden');
+
+        document.getElementById('preview-template-name').textContent = template.name;
+        document.getElementById('preview-template-desc').textContent = template.description;
+
+        // Generate preview
+        try {
+          const previewDataUrl = await PDFHandler.generatePreview(invoice, client, settings, templateId);
+          const iframe = document.getElementById('template-preview-iframe');
+          iframe.srcdoc = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <style>
+                body { margin: 0; padding: 0; }
+                embed { width: 100%; height: 100vh; }
+              </style>
+            </head>
+            <body>
+              <embed src="${previewDataUrl}" type="application/pdf" width="100%" height="100%">
+            </body>
+            </html>
+          `;
+        } catch (err) {
+          console.error('Preview failed:', err);
+        }
+      });
+    });
+
+    this.openModal('template-select-modal');
   },
 
   escapeHtml(text) {

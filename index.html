@@ -253,15 +253,19 @@
             <input type="number" id="setting-counter" min="1" value="1">
           </div>
           <div class="field">
-            <label for="setting-pdf-template">Default PDF Template</label>
-            <select id="setting-pdf-template">
-              <option value="">Always ask</option>
-              <option value="modern">Modern</option>
-              <option value="classic">Classic</option>
-              <option value="minimal">Minimal</option>
-              <option value="bold">Bold</option>
-            </select>
+            <label>Default PDF Template</label>
+            <div id="settings-template-grid" class="template-grid settings-template-grid"></div>
+            <div id="settings-template-preview" class="settings-template-preview hidden">
+              <div class="settings-preview-header">
+                <span id="settings-preview-template-name" class="settings-preview-name"></span>
+                <button id="settings-preview-close" class="btn btn-xs btn-ghost">&times; Close</button>
+              </div>
+              <div class="template-preview-frame settings-preview-frame">
+                <iframe id="settings-preview-iframe"></iframe>
+              </div>
+            </div>
           </div>
+          <input type="hidden" id="setting-pdf-template" value="">
           <div class="backup-section">
             <label class="backup-label">Data Migration</label>
             <p class="backup-desc">Export everything to move to a new device. Import to restore from a backup.</p>

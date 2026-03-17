@@ -130,6 +130,65 @@ const App = {
   },
 
   // Settings
+  getMockPreviewData() {
+    const mockInvoice = {
+      number: 'INV-0001',
+      issueDate: '2026-01-15',
+      dueDate: '2026-02-15',
+      status: 'sent',
+      notes: 'Payment due within 30 days. Thank you for your business!',
+      items: [
+        { description: 'Website Design', qty: 1, rate: 2500 },
+        { description: 'Development Hours', qty: 40, rate: 150 },
+        { description: 'Hosting Setup', qty: 1, rate: 200 },
+      ]
+    };
+    const mockClient = {
+      name: 'Acme Corporation',
+      email: 'billing@acme.com',
+      address: '123 Business Ave, Suite 400\nSan Francisco, CA 94102',
+      taxId: 'US-12-3456789'
+    };
+    return { mockInvoice, mockClient };
+  },
+
+  renderSettingsTemplateCards(s) {
+    const templates = PDFHandler.getTemplateList();
+    const grid = document.getElementById('settings-template-grid');
+    const savedTemplate = s.pdfTemplate || '';
+
+    grid.innerHTML = templates.map(t => `
+      <div class="template-card${t.id === savedTemplate ? ' active-default' : ''}" data-template="${t.id}">
+        <div class="template-card-name">${t.name}</div>
+        <div class="template-card-desc">${t.description}</div>
+      </div>
+    `).join('');
+
+    grid.querySelectorAll('.template-card').forEach(card => {
+      card.addEventListener('click', async () => {
+        const templateId = card.dataset.template;
+
+        grid.querySelectorAll('.template-card').forEach(c => c.classList.remove('active-default'));
+        card.classList.add('active-default');
+        document.getElementById('setting-pdf-template').value = templateId;
+
+        const previewArea = document.getElementById('settings-template-preview');
+        const template = templates.find(t => t.id === templateId);
+        document.getElementById('settings-preview-template-name').textContent = template.name;
+        previewArea.classList.remove('hidden');
+
+        try {
+          const settings = DataStore.getSettings();
+          const { mockInvoice, mockClient } = this.getMockPreviewData();
+          const previewDataUrl = await PDFHandler.generatePreview(mockInvoice, mockClient, settings, templateId);
+          document.getElementById('settings-preview-iframe').src = previewDataUrl;
+        } catch (err) {
+          console.error('Settings preview failed:', err);
+        }
+      });
+    });
+  },
+
   bindSettings() {
     document.getElementById('settings-btn').addEventListener('click', () => {
       const s = DataStore.getSettings();
@@ -140,7 +199,14 @@ const App = {
       document.getElementById('setting-prefix').value = s.prefix;
       document.getElementById('setting-counter').value = s.counter;
       document.getElementById('setting-pdf-template').value = s.pdfTemplate || '';
+      document.getElementById('settings-template-preview').classList.add('hidden');
+      this.renderSettingsTemplateCards(s);
       this.openModal('settings-modal');
+    });
+
+    document.getElementById('settings-preview-close').addEventListener('click', () => {
+      document.getElementById('settings-template-preview').classList.add('hidden');
+      document.getElementById('settings-preview-iframe').src = '';
     });
 
     document.getElementById('save-settings-btn').addEventListener('click', () => {

@@ -136,6 +136,8 @@ const App = {
       issueDate: '2026-01-15',
       dueDate: '2026-02-15',
       status: 'sent',
+      taxRate: 5,
+      taxLabel: 'GST',
       notes: 'Payment due within 30 days. Thank you for your business!',
       items: [
         { description: 'Website Design', qty: 1, rate: 2500 },
@@ -199,6 +201,8 @@ const App = {
       document.getElementById('setting-prefix').value = s.prefix;
       document.getElementById('setting-counter').value = s.counter;
       document.getElementById('setting-pdf-template').value = s.pdfTemplate || '';
+      document.getElementById('setting-tax-rate').value = s.taxRate || 0;
+      document.getElementById('setting-tax-label').value = s.taxLabel || 'Tax';
       document.getElementById('settings-template-preview').classList.add('hidden');
       this.renderSettingsTemplateCards(s);
       this.openModal('settings-modal');
@@ -218,6 +222,8 @@ const App = {
         prefix: document.getElementById('setting-prefix').value.trim() || 'INV-',
         counter: parseInt(document.getElementById('setting-counter').value) || 1,
         pdfTemplate: document.getElementById('setting-pdf-template').value,
+        taxRate: parseFloat(document.getElementById('setting-tax-rate').value) || 0,
+        taxLabel: document.getElementById('setting-tax-label').value.trim() || 'Tax',
       };
       DataStore.saveSettings(settings);
       this.closeModal('settings-modal');
@@ -322,6 +328,9 @@ const App = {
       due.setDate(due.getDate() + 30);
       document.getElementById('invoice-due').value = due.toISOString().split('T')[0];
       document.getElementById('invoice-notes').value = '';
+      const s = DataStore.getSettings();
+      document.getElementById('invoice-tax-rate').value = s.taxRate || 0;
+      document.getElementById('invoice-tax-label').value = s.taxLabel || 'Tax';
       this.populateClientSelect('invoice-client');
       this.populateTemplateSelect('invoice-template');
       document.getElementById('line-items').innerHTML = '';
@@ -335,6 +344,10 @@ const App = {
 
     document.getElementById('add-line-item-btn').addEventListener('click', () => {
       this.addLineItem('line-items');
+    });
+
+    document.getElementById('invoice-tax-rate').addEventListener('input', () => {
+      this.updateInvoiceTotal();
     });
 
     document.getElementById('invoice-template').addEventListener('change', (e) => {
@@ -365,6 +378,8 @@ const App = {
         issueDate: document.getElementById('invoice-issue-date').value,
         dueDate: document.getElementById('invoice-due').value,
         notes: document.getElementById('invoice-notes').value.trim(),
+        taxRate: parseFloat(document.getElementById('invoice-tax-rate').value) || 0,
+        taxLabel: document.getElementById('invoice-tax-label').value.trim() || 'Tax',
         items,
       };
 
@@ -405,6 +420,8 @@ const App = {
         issueDate: document.getElementById('invoice-issue-date').value,
         dueDate: document.getElementById('invoice-due').value,
         notes: document.getElementById('invoice-notes').value.trim(),
+        taxRate: parseFloat(document.getElementById('invoice-tax-rate').value) || 0,
+        taxLabel: document.getElementById('invoice-tax-label').value.trim() || 'Tax',
         items,
       };
       const clientId = document.getElementById('invoice-client').value;
@@ -515,6 +532,8 @@ const App = {
     document.getElementById('invoice-issue-date').value = inv.issueDate || '';
     document.getElementById('invoice-due').value = inv.dueDate || '';
     document.getElementById('invoice-notes').value = inv.notes || '';
+    document.getElementById('invoice-tax-rate').value = inv.taxRate || 0;
+    document.getElementById('invoice-tax-label').value = inv.taxLabel || DataStore.getSettings().taxLabel || 'Tax';
     this.populateClientSelect('invoice-client');
     document.getElementById('invoice-client').value = inv.clientId || '';
     this.populateTemplateSelect('invoice-template');
@@ -605,9 +624,17 @@ const App = {
 
   updateInvoiceTotal() {
     const items = this.getLineItems('line-items');
-    const total = items.reduce((s, i) => s + i.qty * i.rate, 0);
+    const subtotal = items.reduce((s, i) => s + i.qty * i.rate, 0);
+    const taxRate = parseFloat(document.getElementById('invoice-tax-rate').value) || 0;
+    const taxAmount = subtotal * taxRate / 100;
+    const total = subtotal + taxAmount;
     const settings = DataStore.getSettings();
-    document.getElementById('invoice-total').textContent = DataStore.formatCurrency(total, settings);
+    const totalEl = document.getElementById('invoice-total');
+    if (taxRate > 0) {
+      totalEl.innerHTML = `<span class="subtotal-line">${DataStore.formatCurrency(subtotal, settings)} subtotal</span> <span class="tax-line">+ ${DataStore.formatCurrency(taxAmount, settings)} tax</span> <span class="total-line">${DataStore.formatCurrency(total, settings)}</span>`;
+    } else {
+      totalEl.textContent = DataStore.formatCurrency(total, settings);
+    }
   },
 
   populateClientSelect(selectId) {

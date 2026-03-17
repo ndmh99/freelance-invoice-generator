@@ -16,6 +16,8 @@ const DataStore = {
       prefix: 'INV-',
       counter: 1,
       pdfTemplate: '',
+      taxRate: 0,
+      taxLabel: 'Tax',
     },
     clients: [],
     invoices: [],
@@ -188,9 +190,19 @@ const DataStore = {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
   },
 
-  calcInvoiceTotal(invoice) {
+  calcInvoiceSubtotal(invoice) {
     const items = invoice.items || [];
     return items.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.rate) || 0), 0);
+  },
+
+  calcInvoiceTax(invoice) {
+    const subtotal = this.calcInvoiceSubtotal(invoice);
+    const rate = Number(invoice.taxRate) || 0;
+    return subtotal * rate / 100;
+  },
+
+  calcInvoiceTotal(invoice) {
+    return this.calcInvoiceSubtotal(invoice) + this.calcInvoiceTax(invoice);
   },
 
   formatCurrency(amount, settings) {

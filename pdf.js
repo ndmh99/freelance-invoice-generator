@@ -136,13 +136,34 @@ const PDFHandler = {
 
         // Total
         y += 4;
+        const subtotal = DataStore.calcInvoiceSubtotal(invoice);
+        const taxRate = Number(invoice.taxRate) || 0;
+        const taxLabel = invoice.taxLabel || 'Tax';
+        const taxAmount = DataStore.calcInvoiceTax(invoice);
         const total = DataStore.calcInvoiceTotal(invoice);
+        const summaryW = colWidths[2] + colWidths[3] + 10;
+        const summaryX = pageWidth - margin - summaryW;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(80);
+        doc.text('Subtotal', pageWidth - margin - colWidths[3] - 22, y + 2.5, { align: 'right' });
+        doc.text(settings.currency + subtotal.toFixed(2), pageWidth - margin - 8, y + 2.5, { align: 'right' });
+        y += 6;
+
+        if (taxRate > 0) {
+          doc.text(taxLabel + ' (' + taxRate + '%)', pageWidth - margin - colWidths[3] - 22, y + 2.5, { align: 'right' });
+          doc.text(settings.currency + taxAmount.toFixed(2), pageWidth - margin - 8, y + 2.5, { align: 'right' });
+          y += 6;
+        }
+
+        y += 2;
         doc.setFillColor(245, 245, 250);
-        doc.rect(pageWidth - margin - colWidths[2] - colWidths[3] - 10, y - 4, colWidths[2] + colWidths[3] + 10, 10, 'F');
+        doc.rect(summaryX, y - 4, summaryW, 10, 'F');
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
         doc.setTextColor(0);
-        doc.text('TOTAL', pageWidth - margin - colWidths[3] - 22, y + 2.5, { align: 'right' });
+        doc.text('TOTAL DUE', pageWidth - margin - colWidths[3] - 22, y + 2.5, { align: 'right' });
         doc.text(settings.currency + total.toFixed(2), pageWidth - margin - 8, y + 2.5, { align: 'right' });
         y += 16;
 
@@ -409,13 +430,23 @@ const PDFHandler = {
         const summaryBoxW = 120;
         const summaryBoxX = pageWidth - margin - summaryBoxW;
 
+        const subtotal = DataStore.calcInvoiceSubtotal(invoice);
+        const taxRate = Number(invoice.taxRate) || 0;
+        const taxLabel = invoice.taxLabel || 'Tax';
+        const taxAmount = DataStore.calcInvoiceTax(invoice);
         const total = DataStore.calcInvoiceTotal(invoice);
         doc.setFont('times', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(...textMedium);
         doc.text('Subtotal', summaryBoxX + 10, y + 3);
-        doc.text(settings.currency + total.toFixed(2), pageWidth - margin - 5, y + 3, { align: 'right' });
+        doc.text(settings.currency + subtotal.toFixed(2), pageWidth - margin - 5, y + 3, { align: 'right' });
         y += 8;
+
+        if (taxRate > 0) {
+          doc.text(taxLabel + ' (' + taxRate + '%)', summaryBoxX + 10, y + 3);
+          doc.text(settings.currency + taxAmount.toFixed(2), pageWidth - margin - 5, y + 3, { align: 'right' });
+          y += 8;
+        }
 
         doc.setDrawColor(...borderLight);
         doc.setLineWidth(0.3);
@@ -676,18 +707,38 @@ const PDFHandler = {
 
         // Total
         y += 4;
+        const subtotal = DataStore.calcInvoiceSubtotal(invoice);
+        const taxRate = Number(invoice.taxRate) || 0;
+        const taxLabel = invoice.taxLabel || 'Tax';
+        const taxAmount = DataStore.calcInvoiceTax(invoice);
         const total = DataStore.calcInvoiceTotal(invoice);
-
-        doc.setFillColor(...bgSubtle);
-        doc.rect(pageWidth - margin - 130, y - 3, 130, 16, 'F');
-
-        doc.setFillColor(...accentLine);
-        doc.rect(pageWidth - margin - 130, y - 3, 1.5, 16, 'F');
+        const totalW = 130;
+        const totalX = pageWidth - margin - totalW;
 
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...inkMuted);
-        doc.text('Total', pageWidth - margin - 122, y + 6);
+        doc.text('Subtotal', totalX + 8, y + 3);
+        doc.text(settings.currency + subtotal.toFixed(2), pageWidth - margin - 6, y + 3, { align: 'right' });
+        y += 6;
+
+        if (taxRate > 0) {
+          doc.text(taxLabel + ' (' + taxRate + '%)', totalX + 8, y + 3);
+          doc.text(settings.currency + taxAmount.toFixed(2), pageWidth - margin - 6, y + 3, { align: 'right' });
+          y += 6;
+        }
+
+        y += 2;
+        doc.setFillColor(...bgSubtle);
+        doc.rect(totalX, y - 3, totalW, 16, 'F');
+
+        doc.setFillColor(...accentLine);
+        doc.rect(totalX, y - 3, 1.5, 16, 'F');
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...inkMuted);
+        doc.text('Total', totalX + 8, y + 6);
 
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
@@ -925,11 +976,29 @@ const PDFHandler = {
         y += 14;
 
         // Total
+        const subtotal = DataStore.calcInvoiceSubtotal(invoice);
+        const taxRate = Number(invoice.taxRate) || 0;
+        const taxLabel = invoice.taxLabel || 'Tax';
+        const taxAmount = DataStore.calcInvoiceTax(invoice);
         const total = DataStore.calcInvoiceTotal(invoice);
         const totalBoxW = 110;
         const totalBoxX = pageWidth - margin - totalBoxW;
-        const totalBoxH = 14;
 
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...textMuted);
+        doc.text('Subtotal', totalBoxX + 14, y + 2);
+        doc.text(settings.currency + subtotal.toFixed(2), pageWidth - margin - 8, y + 2, { align: 'right' });
+        y += 6;
+
+        if (taxRate > 0) {
+          doc.text(taxLabel + ' (' + taxRate + '%)', totalBoxX + 14, y + 2);
+          doc.text(settings.currency + taxAmount.toFixed(2), pageWidth - margin - 8, y + 2, { align: 'right' });
+          y += 6;
+        }
+
+        y += 2;
+        const totalBoxH = 14;
         doc.setFillColor(...subtleBg);
         doc.rect(totalBoxX, y - 4, totalBoxW, totalBoxH, 'F');
         doc.setFillColor(...warmAmber);
@@ -938,7 +1007,7 @@ const PDFHandler = {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(...textSecondary);
-        doc.text('TOTAL', totalBoxX + 14, y + 5);
+        doc.text('TOTAL DUE', totalBoxX + 14, y + 5);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(15);
         doc.setTextColor(...deepNavy);

@@ -151,7 +151,13 @@ const App = {
       address: '123 Business Ave, Suite 400\nSan Francisco, CA 94102',
       taxId: 'US-12-3456789'
     };
-    return { mockInvoice, mockClient };
+    const mockSettings = {
+      company: 'Studio Creative Co.',
+      email: 'hello@studiocreative.com',
+      address: '456 Design Lane, Floor 3\nNew York, NY 10001',
+      currency: '$',
+    };
+    return { mockInvoice, mockClient, mockSettings };
   },
 
   renderSettingsTemplateCards(s) {
@@ -180,9 +186,8 @@ const App = {
         previewArea.classList.remove('hidden');
 
         try {
-          const settings = DataStore.getSettings();
-          const { mockInvoice, mockClient } = this.getMockPreviewData();
-          const previewDataUrl = await PDFHandler.generatePreview(mockInvoice, mockClient, settings, templateId);
+          const { mockInvoice, mockClient, mockSettings } = this.getMockPreviewData();
+          const previewDataUrl = await PDFHandler.generatePreview(mockInvoice, mockClient, mockSettings, templateId);
           document.getElementById('settings-preview-iframe').src = previewDataUrl;
         } catch (err) {
           console.error('Settings preview failed:', err);

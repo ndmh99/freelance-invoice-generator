@@ -163,7 +163,7 @@ const PDFHandler = {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
         doc.setTextColor(0);
-        doc.text('TOTAL DUE', pageWidth - margin - colWidths[3] - 22, y + 2.5, { align: 'right' });
+        doc.text('TOTAL DUE', pageWidth - margin - colWidths[3] - 18, y + 2.5, { align: 'right' });
         doc.text(settings.currency + total.toFixed(2), pageWidth - margin - 8, y + 2.5, { align: 'right' });
         y += 16;
 

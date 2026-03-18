@@ -12,6 +12,8 @@
 
 No accounts. No servers. No subscriptions. Just open your browser and start invoicing.
 
+![Thumbnail](https://link-to-your-image.com)
+
 ---
 
 ## Features

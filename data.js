@@ -233,3 +233,152 @@ const DataStore = {
     return { revenue, outstanding, overdue, count: invoices.length };
   },
 };
+
+const ExportHandlerRegistry = {
+  handlers: {},
+
+  register(format, handler) {
+    if (!format || !handler) {
+      console.error('ExportHandlerRegistry.register: format and handler are required');
+      return;
+    }
+    if (!handler.name || typeof handler.export !== 'function') {
+      console.error('ExportHandlerRegistry.register: handler must have name and export function');
+      return;
+    }
+    this.handlers[format] = handler;
+  },
+
+  async export(format, data, options = {}) {
+    const handler = this.handlers[format];
+    if (!handler) {
+      console.error(`ExportHandlerRegistry.export: format "${format}" not found`);
+      return false;
+    }
+    try {
+      await handler.export(data, options);
+      return true;
+    } catch (err) {
+      console.error(`ExportHandlerRegistry.export: ${format} export failed:`, err);
+      return false;
+    }
+  },
+
+  getAll() {
+    return Object.entries(this.handlers).map(([format, handler]) => ({
+      format,
+      name: handler.name
+    }));
+  },
+
+  has(format) {
+    return !!this.handlers[format];
+  }
+};
+
+function downloadBlob(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function escapeCSV(value) {
+  const str = String(value ?? '');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+function arrayToCSV(data, headers) {
+  const rows = [headers.map(escapeCSV).join(',')];
+  data.forEach(item => {
+    const row = headers.map(h => escapeCSV(item[h] ?? ''));
+    rows.push(row.join(','));
+  });
+  return rows.join('\n');
+}
+
+const PDFExportHandler = {
+  name: 'PDF',
+  export: async (data, options) => {
+    const { invoice, client, settings, templateId } = options;
+    if (!invoice) {
+      throw new Error('PDF export requires invoice data in options');
+    }
+    if (templateId && typeof PDFHandler !== 'undefined') {
+      await PDFHandler.exportInvoice(invoice, client, settings, templateId);
+      return;
+    }
+    const settingsData = settings || (typeof DataStore !== 'undefined' ? DataStore.getSettings() : {});
+    const defaultTemplate = settingsData.pdfTemplate || 'modern';
+    if (typeof PDFHandler !== 'undefined') {
+      await PDFHandler.exportInvoice(invoice, client, settingsData, defaultTemplate);
+    } else {
+      throw new Error('PDFHandler not loaded');
+    }
+  }
+};
+
+const JSONExportHandler = {
+  name: 'JSON',
+  export: async (data, options) => {
+    const filename = options.filename || 'export.json';
+    const content = JSON.stringify(data, null, 2);
+    downloadBlob(content, filename, 'application/json');
+  }
+};
+
+const CSVExportHandler = {
+  name: 'CSV',
+  export: async (data, options) => {
+    const filename = options.filename || 'export.csv';
+    const settings = options.settings || (typeof DataStore !== 'undefined' ? DataStore.getSettings() : { currency: '$' });
+    const currency = settings.currency || '$';
+    
+    let invoices = [];
+    if (Array.isArray(data)) {
+      invoices = data;
+    } else if (data && data.invoices) {
+      invoices = data.invoices;
+    } else if (data && data.number) {
+      invoices = [data];
+    }
+    
+    const getClient = typeof DataStore !== 'undefined' ? DataStore.getClient.bind(DataStore) : () => null;
+    
+    const rows = invoices.map(inv => {
+      const client = getClient(inv.clientId);
+      const subtotal = typeof DataStore !== 'undefined' ? DataStore.calcInvoiceSubtotal(inv) : 
+        (inv.items || []).reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.rate) || 0), 0);
+      const taxRate = Number(inv.taxRate) || 0;
+      const tax = subtotal * taxRate / 100;
+      const total = subtotal + tax;
+      
+      return {
+        'Invoice Number': inv.number || '',
+        'Client': client ? client.name : 'No client',
+        'Issue Date': inv.issueDate || '',
+        'Due Date': inv.dueDate || '',
+        'Status': inv.status || '',
+        'Subtotal': currency + subtotal.toFixed(2),
+        'Tax': currency + tax.toFixed(2),
+        'Total': currency + total.toFixed(2)
+      };
+    });
+    
+    const headers = ['Invoice Number', 'Client', 'Issue Date', 'Due Date', 'Status', 'Subtotal', 'Tax', 'Total'];
+    const csv = arrayToCSV(rows, headers);
+    downloadBlob(csv, filename, 'text/csv;charset=utf-8;');
+  }
+};
+
+ExportHandlerRegistry.register('pdf', PDFExportHandler);
+ExportHandlerRegistry.register('json', JSONExportHandler);
+ExportHandlerRegistry.register('csv', CSVExportHandler);

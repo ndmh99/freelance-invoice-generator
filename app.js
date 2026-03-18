@@ -236,10 +236,10 @@ const App = {
       this.toast('Settings saved', 'success');
     });
 
-    document.getElementById('export-all-btn').addEventListener('click', () => {
+    document.getElementById('export-all-btn').addEventListener('click', async () => {
       const data = DataStore.exportAll();
-      this.downloadJSON(data, `invoice-backup-${new Date().toISOString().split('T')[0]}.json`);
-      this.toast('All data exported', 'success');
+      const ok = await ExportHandlerRegistry.export('json', data, { filename: `invoice-backup-${new Date().toISOString().split('T')[0]}.json` });
+      this.toast(ok ? 'All data exported as JSON' : 'Export failed', ok ? 'success' : 'error');
     });
 
     document.getElementById('import-all-btn').addEventListener('click', () => {
@@ -417,41 +417,60 @@ const App = {
       this.renderTemplates();
     });
 
-    document.getElementById('export-invoice-pdf-btn').addEventListener('click', () => {
-      const items = this.getLineItems('line-items');
-      const invoice = {
-        number: document.getElementById('invoice-number').value,
-        status: document.getElementById('invoice-status').value,
-        issueDate: document.getElementById('invoice-issue-date').value,
-        dueDate: document.getElementById('invoice-due').value,
-        notes: document.getElementById('invoice-notes').value.trim(),
-        taxRate: parseFloat(document.getElementById('invoice-tax-rate').value) || 0,
-        taxLabel: document.getElementById('invoice-tax-label').value.trim() || 'Tax',
-        items,
-      };
-      const clientId = document.getElementById('invoice-client').value;
-      const client = clientId ? DataStore.getClient(clientId) : null;
-      const settings = DataStore.getSettings();
+    document.getElementById('export-invoice-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('export-menu').classList.toggle('hidden');
+    });
 
-      this.pendingInvoiceExport = { invoice, client, settings };
+    document.addEventListener('click', () => {
+      document.getElementById('export-menu').classList.add('hidden');
+    });
 
-      const defaultTemplate = settings.pdfTemplate || null;
-      if (defaultTemplate) {
-        PDFHandler.exportInvoice(invoice, client, settings, defaultTemplate);
-        this.toast('PDF exported', 'success');
-      } else {
-        this.showTemplateSelectModal(invoice, client, settings);
-      }
+    document.querySelectorAll('.export-menu-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        const format = item.dataset.format;
+        document.getElementById('export-menu').classList.add('hidden');
+        
+        const items = this.getLineItems('line-items');
+        const clientId = document.getElementById('invoice-client').value;
+        const invoice = {
+          number: document.getElementById('invoice-number').value,
+          status: document.getElementById('invoice-status').value,
+          clientId,
+          issueDate: document.getElementById('invoice-issue-date').value,
+          dueDate: document.getElementById('invoice-due').value,
+          notes: document.getElementById('invoice-notes').value.trim(),
+          taxRate: parseFloat(document.getElementById('invoice-tax-rate').value) || 0,
+          taxLabel: document.getElementById('invoice-tax-label').value.trim() || 'Tax',
+          items,
+        };
+        const client = clientId ? DataStore.getClient(clientId) : null;
+        const settings = DataStore.getSettings();
+
+        if (format === 'pdf') {
+          this.pendingInvoiceExport = { invoice, client, settings };
+          const defaultTemplate = settings.pdfTemplate || null;
+          if (defaultTemplate) {
+            const ok = await ExportHandlerRegistry.export('pdf', invoice, { invoice, client, settings, templateId: defaultTemplate });
+            this.toast(ok ? 'PDF exported' : 'Export failed', ok ? 'success' : 'error');
+          } else {
+            this.showTemplateSelectModal(invoice, client, settings);
+          }
+        } else {
+          const ok = await ExportHandlerRegistry.export(format, invoice, { filename: `${invoice.number || 'invoice'}.${format}` });
+          this.toast(ok ? `${format.toUpperCase()} exported` : 'Export failed', ok ? 'success' : 'error');
+        }
+      });
     });
 
     document.getElementById('invoice-filter').addEventListener('change', () => {
       this.renderInvoices();
     });
 
-    document.getElementById('invoice-export-btn').addEventListener('click', () => {
+    document.getElementById('invoice-export-btn').addEventListener('click', async () => {
       const data = { version: 1, type: 'invoices', data: DataStore.getInvoices() };
-      this.downloadJSON(data, 'invoices.json');
-      this.toast('Invoices exported', 'success');
+      const ok = await ExportHandlerRegistry.export('json', data, { filename: 'invoices.json' });
+      this.toast(ok ? 'Invoices exported as JSON' : 'Export failed', ok ? 'success' : 'error');
     });
 
     document.getElementById('invoice-import-btn').addEventListener('click', () => {
@@ -723,10 +742,10 @@ const App = {
       this.render();
     });
 
-    document.getElementById('client-export-btn').addEventListener('click', () => {
+    document.getElementById('client-export-btn').addEventListener('click', async () => {
       const data = { version: 1, type: 'clients', data: DataStore.getClients() };
-      this.downloadJSON(data, 'clients.json');
-      this.toast('Clients exported', 'success');
+      const ok = await ExportHandlerRegistry.export('json', data, { filename: 'clients.json' });
+      this.toast(ok ? 'Clients exported as JSON' : 'Export failed', ok ? 'success' : 'error');
     });
 
     document.getElementById('client-list').addEventListener('click', (e) => {
@@ -903,10 +922,10 @@ const App = {
       this.createFromTemplate(saved.id);
     });
 
-    document.getElementById('template-export-btn').addEventListener('click', () => {
+    document.getElementById('template-export-btn').addEventListener('click', async () => {
       const data = { version: 1, type: 'templates', data: DataStore.getTemplates() };
-      this.downloadJSON(data, 'templates.json');
-      this.toast('Templates exported', 'success');
+      const ok = await ExportHandlerRegistry.export('json', data, { filename: 'templates.json' });
+      this.toast(ok ? 'Templates exported as JSON' : 'Export failed', ok ? 'success' : 'error');
     });
 
     document.getElementById('template-import-btn').addEventListener('click', () => {
@@ -1312,7 +1331,7 @@ const App = {
       document.getElementById('template-preview-grid').classList.remove('hidden');
     });
 
-    document.getElementById('use-template-export').addEventListener('click', () => {
+    document.getElementById('use-template-export').addEventListener('click', async () => {
       const selectedTemplate = document.querySelector('.template-card.selected');
       if (!selectedTemplate) {
         this.toast('Please select a template', 'warning');
@@ -1331,8 +1350,8 @@ const App = {
 
       if (this.pendingInvoiceExport) {
         const { invoice, client, settings } = this.pendingInvoiceExport;
-        PDFHandler.exportInvoice(invoice, client, settings, templateId);
-        this.toast('PDF exported', 'success');
+        const ok = await ExportHandlerRegistry.export('pdf', invoice, { invoice, client, settings, templateId });
+        this.toast(ok ? 'PDF exported' : 'Export failed', ok ? 'success' : 'error');
       }
 
       this.closeModal('template-select-modal');
@@ -1387,16 +1406,6 @@ const App = {
     const div = document.createElement('div');
     div.textContent = text || '';
     return div.innerHTML;
-  },
-
-  downloadJSON(data, filename) {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
   },
 };
 

@@ -80,15 +80,17 @@ Invoices ← Browser download ← jsPDF ← pdf.js ← app.js ← Export PDF
 
 ## Adding a PDF Template
 
-1. Open `pdf.js`
-2. Add a new entry to the `templates` object:
+### Quick Method
+
+1. Create a new file in `pdf-templates/` folder (e.g., `my-template.js`)
+2. Add your template using `PDFHandler.registerTemplate()`:
 
 ```javascript
-myTemplate: {
+PDFHandler.registerTemplate('my-template', {
   name: 'My Template',
   description: 'Brief description of the style',
   render: (doc, invoice, client, settings) => {
-    const margin = 25;
+    const margin = 20;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const contentWidth = pageWidth - margin * 2;
@@ -98,10 +100,23 @@ myTemplate: {
     // Use DataStore.calcInvoiceSubtotal(), calcInvoiceTax(), calcInvoiceTotal()
     // Access invoice.taxRate, invoice.taxLabel for tax display
   }
-}
+});
 ```
 
-3. The template automatically appears in the template selector and settings
+3. Add the filename (without `.js`) to `pdf-templates/template-loader.js` array:
+
+```javascript
+const templateFiles = [
+  'modern',
+  'classic', 
+  'minimal',
+  'bold',
+  'vintage-purple',
+  'my-template'  // <-- Add your template here
+];
+```
+
+4. The template automatically appears in the template selector and settings
 
 ### Required Sections
 

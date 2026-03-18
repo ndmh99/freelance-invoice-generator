@@ -1050,6 +1050,19 @@ const PDFHandler = {
     }
   },
 
+  registerTemplate(id, template) {
+    if (!id || typeof id !== 'string') {
+      throw new Error('Template id must be a non-empty string');
+    }
+    if (!template || typeof template.render !== 'function') {
+      throw new Error('Template must have a render(doc, invoice, client, settings) function');
+    }
+    if (!template.name) {
+      throw new Error('Template must have a name');
+    }
+    this.templates[id] = template;
+  },
+
   getTemplateList() {
     return Object.entries(this.templates).map(([id, template]) => ({
       id,

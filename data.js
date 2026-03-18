@@ -24,6 +24,29 @@ const DataStore = {
     templates: [],
   },
 
+  _statusHandlers: {},
+  _currencyFormatters: {},
+
+  registerStatusHandler(status, handler) {
+    if (!status || typeof status !== 'string') {
+      throw new Error('Status must be a non-empty string');
+    }
+    if (typeof handler !== 'function') {
+      throw new Error('Handler must be a function(invoice, total, today) returning { revenue, outstanding, overdue }');
+    }
+    this._statusHandlers[status] = handler;
+  },
+
+  registerCurrencyFormatter(symbol, formatter) {
+    if (!symbol || typeof symbol !== 'string') {
+      throw new Error('Symbol must be a non-empty string');
+    }
+    if (typeof formatter !== 'function') {
+      throw new Error('Formatter must be a function(amount, symbol) returning a string');
+    }
+    this._currencyFormatters[symbol] = formatter;
+  },
+
   get(key) {
     try {
       const raw = localStorage.getItem(key);
@@ -207,6 +230,10 @@ const DataStore = {
 
   formatCurrency(amount, settings) {
     const s = settings || this.getSettings();
+    const formatter = this._currencyFormatters[s.currency];
+    if (formatter) {
+      return formatter(amount, s.currency);
+    }
     return s.currency + Number(amount).toFixed(2);
   },
 
@@ -217,7 +244,19 @@ const DataStore = {
 
     invoices.forEach(inv => {
       const total = this.calcInvoiceTotal(inv);
-      if (inv.status === 'paid') {
+      const handler = this._statusHandlers[inv.status];
+      if (handler) {
+        let result;
+        try {
+          result = handler(inv, total, today);
+        } catch (e) {
+          console.error(`Status handler for "${inv.status}" failed on invoice ${inv.id}:`, e);
+          return;
+        }
+        revenue += result.revenue || 0;
+        outstanding += result.outstanding || 0;
+        overdue += result.overdue || 0;
+      } else if (inv.status === 'paid') {
         revenue += total;
       } else if (inv.status === 'sent') {
         if (inv.dueDate && inv.dueDate < today) {

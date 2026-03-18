@@ -80,6 +80,39 @@ Invoices ← Browser download ← jsPDF ← pdf.js ← app.js ← Export PDF
 
 ## Adding a PDF Template
 
+### Option A — Register externally (recommended, no modifications to existing files)
+
+Create a new `.js` file (e.g. `my-template.js`) and load it **after** `pdf.js` in `index.html`:
+
+```html
+<script src="pdf.js"></script>
+<script src="my-template.js"></script>
+```
+
+Inside `my-template.js` call `PDFHandler.registerTemplate`:
+
+```javascript
+PDFHandler.registerTemplate('myTemplate', {
+  name: 'My Template',
+  description: 'Brief description of the style',
+  render: (doc, invoice, client, settings) => {
+    const margin = 25;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const contentWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    // Your rendering logic here
+    // Use DataStore.calcInvoiceSubtotal(), calcInvoiceTax(), calcInvoiceTotal()
+    // Access invoice.taxRate, invoice.taxLabel for tax display
+  }
+});
+```
+
+`registerTemplate` validates the provided object and throws a descriptive error if the `id`, `name`, or `render` function is missing or malformed.
+
+### Option B — Add directly to the templates object (modifies pdf.js)
+
 1. Open `pdf.js`
 2. Add a new entry to the `templates` object:
 
@@ -113,6 +146,40 @@ Every template should render:
 - Subtotal, tax (when `invoice.taxRate > 0`), and total due
 - Notes (when `invoice.notes` exists)
 - Footer
+
+## Adding a Custom Invoice Status
+
+Register a handler to plug a new status into the dashboard statistics without modifying `data.js`.
+Load your extension script **after** `data.js`:
+
+```html
+<script src="data.js"></script>
+<script src="my-status.js"></script>
+```
+
+Inside `my-status.js`:
+
+```javascript
+// Example: a 'partial' status that counts towards outstanding
+DataStore.registerStatusHandler('partial', (invoice, total, today) => {
+  return { revenue: 0, outstanding: total, overdue: 0 };
+});
+```
+
+The handler receives `(invoice, total, today)` and must return an object with numeric `revenue`, `outstanding`, and `overdue` contributions. Keys that are omitted default to `0`.
+
+## Adding a Custom Currency Formatter
+
+Register a formatter to change how amounts are displayed for a particular currency symbol without modifying `data.js`:
+
+```javascript
+// Example: suffix symbol (e.g. "1,234.56 €")
+DataStore.registerCurrencyFormatter('€', (amount, symbol) => {
+  return Number(amount).toFixed(2) + ' ' + symbol;
+});
+```
+
+The formatter receives `(amount, symbol)` and must return a string. Built-in statuses and the default `symbol + amount` format are preserved for any symbol that does not have a registered formatter.
 
 ## Reporting Issues
 
